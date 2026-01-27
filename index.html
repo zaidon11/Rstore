@@ -20,6 +20,7 @@
         button:disabled { background: #ccc !important; cursor: not-allowed; }
         .btn-add { background: var(--success); color: white; width: 100%; margin-top: 15px; font-size: 18px; }
         .btn-main { background: var(--primary); color: white; }
+        .btn-wa { background: #25D366; color: white; width: 100%; margin-top: 10px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-back { background: #64748b; color: white; margin-bottom: 15px; }
         .btn-edit { background: var(--warning); color: white; font-size: 12px; margin-right: 10px; }
         .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
@@ -55,6 +56,7 @@
             <h2>تسجيل بيع جديد</h2>
             <div class="grid-form">
                 <input type="text" id="custName" placeholder="اسم الزبون">
+                <input type="text" id="custPhone" placeholder="رقم الهاتف (بدون صفر)">
                 <input type="text" id="phoneModel" placeholder="نوع الجهاز">
                 <input type="number" id="totalPrice" placeholder="السعر الكلي">
                 <input type="number" id="firstPay" placeholder="المقدمة">
@@ -75,12 +77,13 @@
         <div class="card">
             <h2 id="viewName" style="margin:0; color: var(--primary);"></h2>
             <div id="deleteUserContainer"></div> 
-            <p id="viewPhone"></p>
+            <p id="viewPhoneDisplay"></p>
             <div style="display:flex; gap:30px;">
                 <p>السعر الكلي: <b id="viewTotal"></b></p>
                 <p>المتبقي: <b id="viewRemaining" style="color:var(--danger); font-size: 22px;"></b></p>
             </div>
             <div id="completedMsg"></div>
+            <button class="btn-wa" onclick="sendWhatsApp()">💬 إرسال تذكير بالرابط (واتساب)</button>
         </div>
         <div class="card" id="payInputCard" style="background: #f0f9ff;">
             <h3>تسجيل قسط جديد</h3>
@@ -146,18 +149,29 @@
     function addCustomer() {
         const btn = document.getElementById('btnAddCustomer');
         const name = document.getElementById('custName').value.trim();
+        const phone = document.getElementById('custPhone').value.trim();
         const total = parseFloat(document.getElementById('totalPrice').value);
         const first = parseFloat(document.getElementById('firstPay').value) || 0;
 
         if(!name || isNaN(total) || total <= 0) return showToast("أدخل بيانات صحيحة", "danger");
         
-        btn.disabled = true; // حماية من النقرة المزدوجة
+        btn.disabled = true;
         const date = getEngDate();
+        
+        // حساب تاريخ القسط القادم (بعد شهر من الآن)
+        let dueDate = new Date();
+        dueDate.setMonth(dueDate.getMonth() + 1);
+
         db.ref('installments').push({
-            name, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
+            name, 
+            phone,
+            model: document.getElementById('phoneModel').value, 
+            total, 
+            purchaseDate: date,
+            nextDueDate: dueDate.getTime(),
             payments: first > 0 ? [{amount: first, date: date, time: Date.now()}] : []
         }).then(() => {
-            showToast("تم التسجيل", "success");
+            showToast("تم التسجيل بنجاح", "success");
             document.querySelectorAll('.grid-form input').forEach(i => i.value = '');
             btn.disabled = false;
         }).catch(() => btn.disabled = false);
@@ -185,7 +199,7 @@
         document.getElementById('mainView').style.display = 'none';
         document.getElementById('customerView').style.display = 'block';
         document.getElementById('viewName').innerText = c.name;
-        document.getElementById('viewPhone').innerHTML = `الجهاز: ${c.model} <br> تاريخ البيع: <span class="date-text">${c.purchaseDate}</span>`;
+        document.getElementById('viewPhoneDisplay').innerHTML = `الجهاز: ${c.model} <br> الهاتف: ${c.phone || 'غير مسجل'} <br> تاريخ البيع: <span class="date-text">${c.purchaseDate}</span>`;
         document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
 
         const delContainer = document.getElementById('deleteUserContainer');
@@ -232,11 +246,35 @@
         const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
         
-        db.ref('installments/' + currentId + '/payments').set(payments).then(() => {
-            showToast("تمت الدفعة", "success");
+        // تحديث موعد القسط القادم ليكون بعد شهر من تاريخ هذه الدفعة
+        let nextDate = new Date();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+
+        db.ref('installments/' + currentId).update({
+            payments: payments,
+            nextDueDate: nextDate.getTime()
+        }).then(() => {
+            showToast("تمت الدفعة وتحديث الموعد", "success");
             document.getElementById('newPay').value = '';
             btn.disabled = false;
         }).catch(() => btn.disabled = false);
+    }
+
+    function sendWhatsApp() {
+        const c = allCustomers[currentId];
+        if(!c.phone) return alert("رقم الهاتف غير مسجل لهذا الزبون");
+        
+        const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+        const rem = c.total - paid;
+        
+        // حساب الأيام المتبقية للرسالة
+        const diff = c.nextDueDate - Date.now();
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        let timeMsg = days > 0 ? `بعد ${days} يوم` : `متأخر منذ ${Math.abs(days)} يوم`;
+
+        const text = `السلام عليكم زبوننا العزيز ${c.name}.. من مركز الراشد.\nنود تذكيرك بحالة حسابك لجهاز (${c.model}):\n💰 المتبقي بذمتك: ${rem.toLocaleString()} د.ع.\n📅 موعد القسط القادم: ${timeMsg}.\n\nلمتابعة تفاصيل حسابك ودفوعاتك، يمكنك الدخول للرابط التالي:\nhttps://alrashedstore.netlify.app/\n\nيرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
+        
+        window.open(`https://wa.me/964${c.phone}?text=${encodeURIComponent(text)}`);
     }
 
     function triggerEditModal(idx) {
@@ -255,13 +293,10 @@
     function saveEditedPayment(idx) {
         const amount = parseFloat(document.getElementById('editAmountInput').value);
         if(isNaN(amount) || amount <= 0) return showToast("أدخل مبلغاً صحيحاً", "danger");
-        
         const c = allCustomers[currentId];
         const payments = [...c.payments];
         const otherTotal = payments.reduce((s, p, i) => i === idx ? s : s + p.amount, 0);
-        
         if(otherTotal + amount > c.total + 1) return showToast("يتجاوز السعر الكلي!", "danger");
-
         payments[idx].amount = amount;
         db.ref('installments/' + currentId + '/payments').set(payments).then(() => {
             closeModal();
@@ -293,3 +328,4 @@
 </script>
 </body>
 </html>
+
