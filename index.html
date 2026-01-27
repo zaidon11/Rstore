@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مركز الراشد - نظام الأقساط المطور</title>
+    <title>مركز الراشد - إدارة الأقساط الذكية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -131,31 +131,28 @@
     const db = firebase.database();
     let allCustomers = {};
     let currentId = null;
-    let lastProcessedTime = 0;
+    let lastVisitKey = ""; // مفتاح هوية الزيارة
     const SITE_URL = "https://alrashedstore.netlify.app"; 
 
-    // دالة توليد صوت "تنبيه كريستالي" برمجياً
+    // دالة توليد صوت "بينغ-بونغ" مزدوج واحترافي
     function playAlertSound() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            oscillator.type = 'sine'; // صوت ناعم ونقي
-            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // نغمة مرتفعة مسموعة
-            
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05); // رفع الصوت بسرعة
-            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5); // تلاشي الصوت بهدوء
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.5);
-        } catch (e) {
-            console.log("Audio Error:", e);
-        }
+            const notes = [880, 1108]; // نغمتين متناغمتين
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.12));
+                gain.gain.setValueAtTime(0, audioCtx.currentTime + (i * 0.12));
+                gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + (i * 0.12) + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (i * 0.12) + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + (i * 0.12));
+                osc.stop(audioCtx.currentTime + (i * 0.12) + 0.4);
+            });
+        } catch (e) { console.log("Audio Error"); }
     }
 
     function showToast(msg, type = 'primary') {
@@ -165,32 +162,30 @@
         toast.style.borderRightColor = `var(--${type})`;
         toast.innerHTML = `🔔 ${msg}`;
         container.appendChild(toast);
-        
         setTimeout(() => { toast.style.opacity = '1'; }, 10);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 4000);
     }
 
+    // مراقبة الدخول الذكية (تعمل مع الجوال والكمبيوتر)
     function checkSystemAlerts() {
         db.ref('lastVisit').on('value', snap => {
             const v = snap.val();
-            // القفل البرمجي لمنع التكرار (فحص الوقت والآي دي)
-            if(v && v.time > Date.now() - 5000 && v.time !== lastProcessedTime) {
-                lastProcessedTime = v.time;
-                showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن 👀`, 'warning');
-                
-                // تشغيل الصوت البرمجي
-                playAlertSound();
+            if(v && v.time) {
+                const currentKey = v.name + v.time; // هوية فريدة للزيارة
+                // التأكد من أن الزيارة جديدة (مفتاح مختلف) وحديثة (آخر 15 ثانية)
+                if(currentKey !== lastVisitKey && v.time > Date.now() - 15000) {
+                    lastVisitKey = currentKey;
+                    showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن 📱`, 'warning');
+                    playAlertSound();
+                }
             }
         });
 
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toLocaleDateString('en-GB');
+        const tomorrowStr = new Date(Date.now() + 86400000).toLocaleDateString('en-GB');
         Object.keys(allCustomers).forEach(id => {
             const c = allCustomers[id];
-            if(c.nextDueDate) {
-                const nextDate = new Date(c.nextDueDate).toLocaleDateString('en-GB');
-                if(nextDate === tomorrowStr) showToast(`تذكير: قسط <b>${c.name}</b> موعده غداً!`, 'danger');
+            if(c.nextDueDate && new Date(c.nextDueDate).toLocaleDateString('en-GB') === tomorrowStr) {
+                showToast(`تذكير: قسط <b>${c.name}</b> موعده غداً!`, 'danger');
             }
         });
     }
@@ -199,20 +194,18 @@
         const c = allCustomers[currentId];
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = Math.max(0, c.total - paid);
-
         document.getElementById('pName').innerText = c.name;
         document.getElementById('pModel').innerText = c.model;
         document.getElementById('pTotal').innerText = formatNum(c.total) + " د.ع";
         document.getElementById('pRem').innerText = formatNum(rem) + " د.ع";
         document.getElementById('pDate').innerText = new Date().toLocaleDateString('ar-EG');
-
         const template = document.getElementById('printTemplate');
         html2canvas(template, { scale: 2 }).then(canvas => {
             const link = document.createElement('a');
             link.download = `وصل_${c.name}.png`;
             link.href = canvas.toDataURL("image/png");
             link.click();
-            showToast("تم توليد الوصل بنجاح", "success");
+            showToast("تم توليد الوصل", "success");
         });
     }
 
@@ -237,26 +230,22 @@
     function addCustomer() {
         const btn = document.getElementById('btnAddCustomer');
         const name = document.getElementById('custName').value.trim();
-        const phone = document.getElementById('custPhone').value.trim();
         const total = parseFloat(document.getElementById('totalPrice').value);
         const first = parseFloat(document.getElementById('firstPay').value) || 0;
-
-        if(!name || isNaN(total) || total <= 0) return showToast("أدخل بيانات صحيحة", "danger");
-        
+        if(!name || isNaN(total)) return showToast("أكمل البيانات", "danger");
         btn.disabled = true;
         const date = getEngDate();
         let dueDate = new Date();
         dueDate.setMonth(dueDate.getMonth() + 1);
-
         db.ref('installments').push({
-            name, phone, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
+            name, phone: document.getElementById('custPhone').value, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
             nextDueDate: dueDate.getTime(),
             payments: first > 0 ? [{amount: first, date: date, time: Date.now()}] : []
         }).then(() => {
-            showToast("تم التسجيل بنجاح", "success");
+            showToast("تم الحفظ", "success");
             document.querySelectorAll('.grid-form input').forEach(i => i.value = '');
             btn.disabled = false;
-        }).catch(() => btn.disabled = false);
+        });
     }
 
     function renderTable() {
@@ -269,7 +258,7 @@
             const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
             const rem = Math.max(0, c.total - paid);
             body.innerHTML += `<tr onclick="showCustomer('${id}')"><td><b>${c.name}</b></td><td>${c.model}</td><td>${formatNum(rem)} د.ع</td>
-                <td><span class="badge ${rem <= 0 ? 'badge-paid' : 'badge-debt'}">${rem <= 0 ? 'تم الدفع كامل' : 'مطلوب'}</span></td></tr>`;
+                <td><span class="badge ${rem <= 0 ? 'badge-paid' : 'badge-debt'}">${rem <= 0 ? 'تم الدفع' : 'مطلوب'}</span></td></tr>`;
         });
     }
 
@@ -277,14 +266,12 @@
         currentId = id;
         const c = allCustomers[id];
         if(!c) return showMain();
-        
         document.getElementById('mainView').style.display = 'none';
         document.getElementById('customerView').style.display = 'block';
         document.getElementById('viewName').innerText = c.name;
-        document.getElementById('viewPhoneDisplay').innerHTML = `الجهاز: ${c.model} <br> الهاتف: ${c.phone || 'غير مسجل'} <br> تاريخ البيع: <span class="date-text">${c.purchaseDate}</span>`;
+        document.getElementById('viewPhoneDisplay').innerHTML = `الجهاز: ${c.model} <br> الهاتف: ${c.phone || 'غير مسجل'}`;
         document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
-        document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف الزبون</button>`;
-
+        document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف</button>`;
         const log = document.getElementById('paymentsLog');
         log.innerHTML = '';
         let totalPaid = 0;
@@ -292,9 +279,7 @@
             c.payments.forEach((p, idx) => {
                 totalPaid += p.amount;
                 const canEdit = (Date.now() - p.time) / 1000 / 60 < 10;
-                log.innerHTML += `<div class="payment-item">
-                    <div><b>${formatNum(p.amount)} د.ع</b> ${canEdit ? `<button class="btn-edit" onclick="triggerEditModal(${idx})">تعديل</button>` : ''}</div>
-                    <span class="date-text">${p.date}</span></div>`;
+                log.innerHTML += `<div class="payment-item"><div><b>${formatNum(p.amount)} د.ع</b> ${canEdit ? `<button class="btn-edit" onclick="triggerEditModal(${idx})">تعديل</button>` : ''}</div><span>${p.date}</span></div>`;
             });
         }
         const remaining = Math.max(0, c.total - totalPaid);
@@ -305,27 +290,21 @@
     function addInstallment() {
         const val = parseFloat(document.getElementById('newPay').value);
         if(isNaN(val) || val <= 0) return;
-        const c = allCustomers[currentId];
-        const payments = c.payments || [];
+        const payments = allCustomers[currentId].payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
         let nextDate = new Date();
         nextDate.setMonth(nextDate.getMonth() + 1);
         db.ref('installments/' + currentId).update({ payments, nextDueDate: nextDate.getTime() }).then(() => {
-            showToast("تم تسجيل الدفعة", "success");
+            showToast("تم الدفع", "success");
             document.getElementById('newPay').value = '';
         });
     }
 
     function sendWhatsApp() {
         const c = allCustomers[currentId];
-        if(!c.phone) return alert("رقم الهاتف غير مسجل");
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
-        const diff = c.nextDueDate - Date.now();
-        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-        let timeMsg = days > 0 ? `بعد ${days} يوم` : `متأخر منذ ${Math.abs(days)} يوم`;
-        const personalLink = `${SITE_URL}/?id=${currentId}`;
-        const text = `السلام عليكم زبوننا العزيز ${c.name}.. من مركز الراشد.\nنود تذكيرك بحالة حسابك لجهاز (${c.model}):\n💰 المتبقي بذمتك: ${rem.toLocaleString()} د.ع.\n📅 موعد القسط القادم: ${timeMsg}.\n\nلمتابعة تفاصيل حسابك ودفوعاتك، يمكنك الدخول للرابط التالي:\n${personalLink}\n\nيرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
+        const text = `السلام عليكم ${c.name}.. من مركز الراشد.\nالمتبقي بذمتك: ${rem.toLocaleString()} د.ع.\nرابط حسابك:\n${SITE_URL}/?id=${currentId}`;
         window.open(`https://wa.me/964${c.phone}?text=${encodeURIComponent(text)}`);
     }
 
@@ -337,7 +316,7 @@
         const amount = parseFloat(document.getElementById('editAmountInput').value);
         const payments = [...allCustomers[currentId].payments];
         payments[idx].amount = amount;
-        db.ref('installments/' + currentId + '/payments').set(payments).then(() => { closeModal(); showToast("تم التعديل", "success"); });
+        db.ref('installments/' + currentId + '/payments').set(payments).then(() => { closeModal(); });
     }
     function triggerDeleteUserModal() { openModal(`<h3>حذف الزبون؟</h3><div class="modal-btns"><button style="background:var(--danger);color:white;" onclick="confirmDeleteUser()">نعم</button><button onclick="closeModal()">إلغاء</button></div>`); }
     function confirmDeleteUser() { db.ref('installments/' + currentId).remove().then(() => { closeModal(); showMain(); }); }
@@ -346,3 +325,4 @@
 </script>
 </body>
 </html>
+
