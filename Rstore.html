@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مركز الراشد - نظام الأقساط المحصن</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root { --primary: #1c4587; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --bg: #f4f7f9; }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; direction: rtl; }
+        .container { max-width: 900px; margin: 0 auto; }
+        header { background: var(--primary); color: white; text-align: center; padding: 20px; border-radius: 15px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 20px; position: relative; }
+        .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        input { padding: 14px; border: 1px solid #c9d2db; border-radius: 10px; font-size: 16px; font-family: 'Cairo'; width: 100%; box-sizing: border-box; }
+        button { padding: 10px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: 'Cairo'; transition: 0.3s; }
+        button:disabled { background: #ccc !important; cursor: not-allowed; }
+        .btn-add { background: var(--success); color: white; width: 100%; margin-top: 15px; font-size: 18px; }
+        .btn-main { background: var(--primary); color: white; }
+        .btn-back { background: #64748b; color: white; margin-bottom: 15px; }
+        .btn-edit { background: var(--warning); color: white; font-size: 12px; margin-right: 10px; }
+        .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 15px; text-align: right; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f8fafc; cursor: pointer; }
+        .date-text { direction: ltr; display: inline-block; font-family: 'monospace'; font-size: 17px; font-weight: bold; color: #475569; background: #eef2f6; padding: 4px 10px; border-radius: 6px; }
+        .badge { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .badge-debt { background: #fee2e2; color: #b91c1c; }
+        .badge-paid { background: #d1fae5; color: #065f46; border: 2px solid #065f46; }
+        #toast-container { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 10000; pointer-events: none; }
+        .toast { background: white; padding: 12px 25px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.4s ease; border-right: 4px solid var(--primary); font-weight: bold; }
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 9999; justify-content:center; align-items:center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: zoomIn 0.3s ease; }
+        @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
+        #customerView { display: none; }
+        .payment-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; }
+        .full-paid-msg { color: var(--success); font-weight: bold; text-align: center; font-size: 1.2rem; padding: 10px; border: 2px dashed var(--success); border-radius: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+<div id="customModal" class="modal-overlay">
+    <div class="modal-content" id="modalBody"></div>
+</div>
+
+<div class="container">
+    <div id="mainView">
+        <header><h1>📝 مركز الراشد - الأقساط</h1></header>
+        <div class="card">
+            <h2>تسجيل بيع جديد</h2>
+            <div class="grid-form">
+                <input type="text" id="custName" placeholder="اسم الزبون">
+                <input type="text" id="phoneModel" placeholder="نوع الجهاز">
+                <input type="number" id="totalPrice" placeholder="السعر الكلي">
+                <input type="number" id="firstPay" placeholder="المقدمة">
+            </div>
+            <button class="btn-add" id="btnAddCustomer" onclick="addCustomer()">حفظ البيانات بالسحابة ☁️</button>
+        </div>
+        <div class="card">
+            <input type="text" id="search" placeholder="🔍 ابحث عن اسم زبون..." onkeyup="renderTable()" style="width: 95%;">
+            <table>
+                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>الحالة</th></tr></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="customerView">
+        <button class="btn-back" onclick="showMain()">⬅ رجوع للقائمة</button>
+        <div class="card">
+            <h2 id="viewName" style="margin:0; color: var(--primary);"></h2>
+            <div id="deleteUserContainer"></div> 
+            <p id="viewPhone"></p>
+            <div style="display:flex; gap:30px;">
+                <p>السعر الكلي: <b id="viewTotal"></b></p>
+                <p>المتبقي: <b id="viewRemaining" style="color:var(--danger); font-size: 22px;"></b></p>
+            </div>
+            <div id="completedMsg"></div>
+        </div>
+        <div class="card" id="payInputCard" style="background: #f0f9ff;">
+            <h3>تسجيل قسط جديد</h3>
+            <div class="grid-form">
+                <input type="number" id="newPay" placeholder="المبلغ">
+                <button class="btn-main" id="btnConfirmPay" onclick="addInstallment()">تأكيد الدفع</button>
+            </div>
+        </div>
+        <div class="card"><h3>سجل المدفوعات (التعديل متاح لـ 10 دقائق)</h3><div id="paymentsLog"></div></div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBpt495yhuoTbjunCLIFCF_8c1NesxZHWs",
+        authDomain: "shopweb-3466b.firebaseapp.com",
+        databaseURL: "https://shopweb-3466b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "shopweb-3466b",
+        storageBucket: "shopweb-3466b.firebasestorage.app",
+        messagingSenderId: "41811528812",
+        appId: "1:41811528812:web:618f240f8106f218a8dc49"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let allCustomers = {};
+    let currentId = null;
+
+    function showToast(msg, type = 'primary') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.style.borderRightColor = `var(--${type})`;
+        toast.innerHTML = `🔔 ${msg}`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '1'; }, 10);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
+    }
+
+    function closeModal() { document.getElementById('customModal').style.display = 'none'; }
+    function openModal(html) {
+        document.getElementById('modalBody').innerHTML = html;
+        document.getElementById('customModal').style.display = 'flex';
+    }
+
+    function formatNum(n) { return Number(n).toLocaleString(); }
+
+    function getEngDate() {
+        return new Date().toLocaleString('en-GB', { 
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: true 
+        }).replace(',', ' |');
+    }
+
+    function loadData() {
+        db.ref('installments').on('value', (snap) => {
+            allCustomers = snap.val() || {};
+            renderTable();
+            if(currentId) showCustomer(currentId);
+        });
+    }
+
+    function addCustomer() {
+        const btn = document.getElementById('btnAddCustomer');
+        const name = document.getElementById('custName').value.trim();
+        const total = parseFloat(document.getElementById('totalPrice').value);
+        const first = parseFloat(document.getElementById('firstPay').value) || 0;
+
+        if(!name || isNaN(total) || total <= 0) return showToast("أدخل بيانات صحيحة", "danger");
+        
+        btn.disabled = true; // حماية من النقرة المزدوجة
+        const date = getEngDate();
+        db.ref('installments').push({
+            name, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
+            payments: first > 0 ? [{amount: first, date: date, time: Date.now()}] : []
+        }).then(() => {
+            showToast("تم التسجيل", "success");
+            document.querySelectorAll('.grid-form input').forEach(i => i.value = '');
+            btn.disabled = false;
+        }).catch(() => btn.disabled = false);
+    }
+
+    function renderTable() {
+        const term = document.getElementById('search').value.toLowerCase();
+        const body = document.getElementById('tableBody');
+        body.innerHTML = '';
+        Object.keys(allCustomers).forEach(id => {
+            const c = allCustomers[id];
+            if(!c.name.toLowerCase().includes(term)) return;
+            const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+            const rem = Math.max(0, c.total - paid);
+            body.innerHTML += `<tr onclick="showCustomer('${id}')"><td><b>${c.name}</b></td><td>${c.model}</td><td>${formatNum(rem)} د.ع</td>
+                <td><span class="badge ${rem <= 0 ? 'badge-paid' : 'badge-debt'}">${rem <= 0 ? 'تم الدفع كامل' : 'مطلوب'}</span></td></tr>`;
+        });
+    }
+
+    function showCustomer(id) {
+        currentId = id;
+        const c = allCustomers[id];
+        if(!c) return showMain();
+        
+        document.getElementById('mainView').style.display = 'none';
+        document.getElementById('customerView').style.display = 'block';
+        document.getElementById('viewName').innerText = c.name;
+        document.getElementById('viewPhone').innerHTML = `الجهاز: ${c.model} <br> تاريخ البيع: <span class="date-text">${c.purchaseDate}</span>`;
+        document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
+
+        const delContainer = document.getElementById('deleteUserContainer');
+        delContainer.innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف الزبون</button>`;
+
+        const log = document.getElementById('paymentsLog');
+        log.innerHTML = '';
+        let totalPaid = 0;
+        const now = Date.now();
+
+        if (c.payments) {
+            c.payments.forEach((p, idx) => {
+                totalPaid += p.amount;
+                const canEdit = (now - p.time) / 1000 / 60 < 10;
+                log.innerHTML += `<div class="payment-item">
+                    <div><span style="font-size:18px; font-weight:bold; color:var(--success);">${formatNum(p.amount)} د.ع</span>
+                    ${canEdit ? `<button class="btn-edit" onclick="triggerEditModal(${idx})">تعديل</button>` : ''}</div>
+                    <span class="date-text">${p.date}</span></div>`;
+            });
+        }
+
+        const remaining = Math.max(0, c.total - totalPaid);
+        document.getElementById('viewRemaining').innerText = formatNum(remaining) + " د.ع";
+        
+        if(remaining <= 0) {
+            document.getElementById('completedMsg').innerHTML = `<div class="full-paid-msg">✅ تم تسديد كامل المبلغ</div>`;
+            document.getElementById('payInputCard').style.display = 'none';
+        } else {
+            document.getElementById('completedMsg').innerHTML = '';
+            document.getElementById('payInputCard').style.display = 'block';
+        }
+    }
+
+    function addInstallment() {
+        const btn = document.getElementById('btnConfirmPay');
+        const val = parseFloat(document.getElementById('newPay').value);
+        if(isNaN(val) || val <= 0) return showToast("أدخل مبلغاً صحيحاً", "danger");
+        
+        const c = allCustomers[currentId];
+        const paidSoFar = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+        if(paidSoFar + val > c.total + 1) return showToast("المبلغ أكبر من المتبقي!", "danger");
+
+        btn.disabled = true;
+        const payments = c.payments || [];
+        payments.push({ amount: val, date: getEngDate(), time: Date.now() });
+        
+        db.ref('installments/' + currentId + '/payments').set(payments).then(() => {
+            showToast("تمت الدفعة", "success");
+            document.getElementById('newPay').value = '';
+            btn.disabled = false;
+        }).catch(() => btn.disabled = false);
+    }
+
+    function triggerEditModal(idx) {
+        const currentAmount = allCustomers[currentId].payments[idx].amount;
+        openModal(`
+            <h3 style="color:var(--primary)">تعديل مبلغ القسط</h3>
+            <p>المبلغ الحالي: ${formatNum(currentAmount)} د.ع</p>
+            <input type="number" id="editAmountInput" value="${currentAmount}" style="margin-bottom:10px">
+            <div class="modal-btns">
+                <button class="btn-main" onclick="saveEditedPayment(${idx})">حفظ التعديل</button>
+                <button class="btn-back" onclick="closeModal()">إلغاء</button>
+            </div>
+        `);
+    }
+
+    function saveEditedPayment(idx) {
+        const amount = parseFloat(document.getElementById('editAmountInput').value);
+        if(isNaN(amount) || amount <= 0) return showToast("أدخل مبلغاً صحيحاً", "danger");
+        
+        const c = allCustomers[currentId];
+        const payments = [...c.payments];
+        const otherTotal = payments.reduce((s, p, i) => i === idx ? s : s + p.amount, 0);
+        
+        if(otherTotal + amount > c.total + 1) return showToast("يتجاوز السعر الكلي!", "danger");
+
+        payments[idx].amount = amount;
+        db.ref('installments/' + currentId + '/payments').set(payments).then(() => {
+            closeModal();
+            showToast("تم التعديل", "success");
+        });
+    }
+
+    function triggerDeleteUserModal() {
+        openModal(`
+            <h3 style="color:var(--danger)">⚠️ تأكيد حذف الزبون</h3>
+            <p>هل أنت متأكد من حذف (<b>${allCustomers[currentId].name}</b>)؟</p>
+            <div class="modal-btns">
+                <button style="background:var(--danger); color:white; padding:10px 20px; border-radius:10px;" onclick="confirmDeleteUser()">نعم، احذف</button>
+                <button class="btn-back" onclick="closeModal()">إلغاء</button>
+            </div>
+        `);
+    }
+
+    function confirmDeleteUser() {
+        db.ref('installments/' + currentId).remove().then(() => {
+            closeModal();
+            showMain();
+            showToast("تم الحذف", "success");
+        });
+    }
+
+    function showMain() { currentId = null; document.getElementById('mainView').style.display = 'block'; document.getElementById('customerView').style.display = 'none'; }
+    loadData();
+</script>
+</body>
+</html>
