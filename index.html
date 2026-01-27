@@ -111,6 +111,7 @@
     const db = firebase.database();
     let allCustomers = {};
     let currentId = null;
+    const SITE_URL = "https://alrashedstore.netlify.app"; 
 
     function showToast(msg, type = 'primary') {
         const container = document.getElementById('toast-container');
@@ -123,6 +124,30 @@
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
     }
 
+    // تنبيهات الإدارة
+    function checkSystemAlerts() {
+        db.ref('lastVisit').on('value', snap => {
+            const v = snap.val();
+            if(v && v.time > Date.now() - 5000) {
+                showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن 👀`, 'warning');
+            }
+        });
+
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toLocaleDateString('en-GB');
+
+        Object.keys(allCustomers).forEach(id => {
+            const c = allCustomers[id];
+            if(c.nextDueDate) {
+                const nextDate = new Date(c.nextDueDate).toLocaleDateString('en-GB');
+                if(nextDate === tomorrowStr) {
+                    showToast(`تذكير: قسط <b>${c.name}</b> موعده غداً!`, 'danger');
+                }
+            }
+        });
+    }
+
     function closeModal() { document.getElementById('customModal').style.display = 'none'; }
     function openModal(html) {
         document.getElementById('modalBody').innerHTML = html;
@@ -130,18 +155,13 @@
     }
 
     function formatNum(n) { return Number(n).toLocaleString(); }
-
-    function getEngDate() {
-        return new Date().toLocaleString('en-GB', { 
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', hour12: true 
-        }).replace(',', ' |');
-    }
+    function getEngDate() { return new Date().toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' |'); }
 
     function loadData() {
         db.ref('installments').on('value', (snap) => {
             allCustomers = snap.val() || {};
             renderTable();
+            checkSystemAlerts();
             if(currentId) showCustomer(currentId);
         });
     }
@@ -157,17 +177,11 @@
         
         btn.disabled = true;
         const date = getEngDate();
-        
-        // حساب تاريخ القسط القادم (بعد شهر من الآن)
         let dueDate = new Date();
         dueDate.setMonth(dueDate.getMonth() + 1);
 
         db.ref('installments').push({
-            name, 
-            phone,
-            model: document.getElementById('phoneModel').value, 
-            total, 
-            purchaseDate: date,
+            name, phone, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
             nextDueDate: dueDate.getTime(),
             payments: first > 0 ? [{amount: first, date: date, time: Date.now()}] : []
         }).then(() => {
@@ -201,131 +215,72 @@
         document.getElementById('viewName').innerText = c.name;
         document.getElementById('viewPhoneDisplay').innerHTML = `الجهاز: ${c.model} <br> الهاتف: ${c.phone || 'غير مسجل'} <br> تاريخ البيع: <span class="date-text">${c.purchaseDate}</span>`;
         document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
-
-        const delContainer = document.getElementById('deleteUserContainer');
-        delContainer.innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف الزبون</button>`;
+        document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف الزبون</button>`;
 
         const log = document.getElementById('paymentsLog');
         log.innerHTML = '';
         let totalPaid = 0;
-        const now = Date.now();
-
         if (c.payments) {
             c.payments.forEach((p, idx) => {
                 totalPaid += p.amount;
-                const canEdit = (now - p.time) / 1000 / 60 < 10;
+                const canEdit = (Date.now() - p.time) / 1000 / 60 < 10;
                 log.innerHTML += `<div class="payment-item">
-                    <div><span style="font-size:18px; font-weight:bold; color:var(--success);">${formatNum(p.amount)} د.ع</span>
-                    ${canEdit ? `<button class="btn-edit" onclick="triggerEditModal(${idx})">تعديل</button>` : ''}</div>
+                    <div><b>${formatNum(p.amount)} د.ع</b> ${canEdit ? `<button class="btn-edit" onclick="triggerEditModal(${idx})">تعديل</button>` : ''}</div>
                     <span class="date-text">${p.date}</span></div>`;
             });
         }
-
         const remaining = Math.max(0, c.total - totalPaid);
         document.getElementById('viewRemaining').innerText = formatNum(remaining) + " د.ع";
-        
-        if(remaining <= 0) {
-            document.getElementById('completedMsg').innerHTML = `<div class="full-paid-msg">✅ تم تسديد كامل المبلغ</div>`;
-            document.getElementById('payInputCard').style.display = 'none';
-        } else {
-            document.getElementById('completedMsg').innerHTML = '';
-            document.getElementById('payInputCard').style.display = 'block';
-        }
+        document.getElementById('payInputCard').style.display = (remaining <= 0) ? 'none' : 'block';
     }
 
     function addInstallment() {
-        const btn = document.getElementById('btnConfirmPay');
         const val = parseFloat(document.getElementById('newPay').value);
-        if(isNaN(val) || val <= 0) return showToast("أدخل مبلغاً صحيحاً", "danger");
-        
+        if(isNaN(val) || val <= 0) return;
         const c = allCustomers[currentId];
-        const paidSoFar = (c.payments || []).reduce((s, p) => s + p.amount, 0);
-        if(paidSoFar + val > c.total + 1) return showToast("المبلغ أكبر من المتبقي!", "danger");
-
-        btn.disabled = true;
         const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
-        
-        // تحديث موعد القسط القادم ليكون بعد شهر من تاريخ هذه الدفعة
         let nextDate = new Date();
         nextDate.setMonth(nextDate.getMonth() + 1);
-
-        db.ref('installments/' + currentId).update({
-            payments: payments,
-            nextDueDate: nextDate.getTime()
-        }).then(() => {
-            showToast("تمت الدفعة وتحديث الموعد", "success");
+        db.ref('installments/' + currentId).update({ payments, nextDueDate: nextDate.getTime() }).then(() => {
+            showToast("تم تسجيل الدفعة", "success");
             document.getElementById('newPay').value = '';
-            btn.disabled = false;
-        }).catch(() => btn.disabled = false);
+        });
     }
 
     function sendWhatsApp() {
         const c = allCustomers[currentId];
-        if(!c.phone) return alert("رقم الهاتف غير مسجل لهذا الزبون");
+        if(!c.phone) return alert("رقم الهاتف غير مسجل");
         
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
         
-        // حساب الأيام المتبقية للرسالة
         const diff = c.nextDueDate - Date.now();
         const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
         let timeMsg = days > 0 ? `بعد ${days} يوم` : `متأخر منذ ${Math.abs(days)} يوم`;
 
-        const text = `السلام عليكم زبوننا العزيز ${c.name}.. من مركز الراشد.\nنود تذكيرك بحالة حسابك لجهاز (${c.model}):\n💰 المتبقي بذمتك: ${rem.toLocaleString()} د.ع.\n📅 موعد القسط القادم: ${timeMsg}.\n\nلمتابعة تفاصيل حسابك ودفوعاتك، يمكنك الدخول للرابط التالي:\nhttps://alrashedstore.netlify.app/\n\nيرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
+        // الرابط الخاص بالزبون بدلاً من الرابط العام
+        const personalLink = `${SITE_URL}/?id=${currentId}`;
+
+        const text = `السلام عليكم زبوننا العزيز ${c.name}.. من مركز الراشد.\nنود تذكيرك بحالة حسابك لجهاز (${c.model}):\n💰 المتبقي بذمتك: ${rem.toLocaleString()} د.ع.\n📅 موعد القسط القادم: ${timeMsg}.\n\nلمتابعة تفاصيل حسابك ودفوعاتك، يمكنك الدخول للرابط التالي:\n${personalLink}\n\nيرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
         
         window.open(`https://wa.me/964${c.phone}?text=${encodeURIComponent(text)}`);
     }
 
     function triggerEditModal(idx) {
         const currentAmount = allCustomers[currentId].payments[idx].amount;
-        openModal(`
-            <h3 style="color:var(--primary)">تعديل مبلغ القسط</h3>
-            <p>المبلغ الحالي: ${formatNum(currentAmount)} د.ع</p>
-            <input type="number" id="editAmountInput" value="${currentAmount}" style="margin-bottom:10px">
-            <div class="modal-btns">
-                <button class="btn-main" onclick="saveEditedPayment(${idx})">حفظ التعديل</button>
-                <button class="btn-back" onclick="closeModal()">إلغاء</button>
-            </div>
-        `);
+        openModal(`<h3>تعديل القسط</h3><input type="number" id="editAmountInput" value="${currentAmount}"><div class="modal-btns"><button onclick="saveEditedPayment(${idx})">حفظ</button><button onclick="closeModal()">إلغاء</button></div>`);
     }
-
     function saveEditedPayment(idx) {
         const amount = parseFloat(document.getElementById('editAmountInput').value);
-        if(isNaN(amount) || amount <= 0) return showToast("أدخل مبلغاً صحيحاً", "danger");
-        const c = allCustomers[currentId];
-        const payments = [...c.payments];
-        const otherTotal = payments.reduce((s, p, i) => i === idx ? s : s + p.amount, 0);
-        if(otherTotal + amount > c.total + 1) return showToast("يتجاوز السعر الكلي!", "danger");
+        const payments = [...allCustomers[currentId].payments];
         payments[idx].amount = amount;
-        db.ref('installments/' + currentId + '/payments').set(payments).then(() => {
-            closeModal();
-            showToast("تم التعديل", "success");
-        });
+        db.ref('installments/' + currentId + '/payments').set(payments).then(() => { closeModal(); showToast("تم التعديل", "success"); });
     }
-
-    function triggerDeleteUserModal() {
-        openModal(`
-            <h3 style="color:var(--danger)">⚠️ تأكيد حذف الزبون</h3>
-            <p>هل أنت متأكد من حذف (<b>${allCustomers[currentId].name}</b>)؟</p>
-            <div class="modal-btns">
-                <button style="background:var(--danger); color:white; padding:10px 20px; border-radius:10px;" onclick="confirmDeleteUser()">نعم، احذف</button>
-                <button class="btn-back" onclick="closeModal()">إلغاء</button>
-            </div>
-        `);
-    }
-
-    function confirmDeleteUser() {
-        db.ref('installments/' + currentId).remove().then(() => {
-            closeModal();
-            showMain();
-            showToast("تم الحذف", "success");
-        });
-    }
-
+    function triggerDeleteUserModal() { openModal(`<h3>حذف الزبون؟</h3><div class="modal-btns"><button style="background:var(--danger);color:white;" onclick="confirmDeleteUser()">نعم</button><button onclick="closeModal()">إلغاء</button></div>`); }
+    function confirmDeleteUser() { db.ref('installments/' + currentId).remove().then(() => { closeModal(); showMain(); }); }
     function showMain() { currentId = null; document.getElementById('mainView').style.display = 'block'; document.getElementById('customerView').style.display = 'none'; }
     loadData();
 </script>
 </body>
 </html>
-
