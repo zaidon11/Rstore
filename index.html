@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مركز الراشد - نظام الأقساط المحصن</title>
+    <title>مركز الراشد - نظام الأقساط المطور</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         :root { --primary: #1c4587; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --bg: #f4f7f9; }
@@ -21,6 +22,7 @@
         .btn-add { background: var(--success); color: white; width: 100%; margin-top: 15px; font-size: 18px; }
         .btn-main { background: var(--primary); color: white; }
         .btn-wa { background: #25D366; color: white; width: 100%; margin-top: 10px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-print { background: #10b981; color: white; width: 100%; margin-top: 10px; font-size: 16px; }
         .btn-back { background: #64748b; color: white; margin-bottom: 15px; }
         .btn-edit { background: var(--warning); color: white; font-size: 12px; margin-right: 10px; }
         .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
@@ -39,7 +41,7 @@
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
         #customerView { display: none; }
         .payment-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; }
-        .full-paid-msg { color: var(--success); font-weight: bold; text-align: center; font-size: 1.2rem; padding: 10px; border: 2px dashed var(--success); border-radius: 10px; margin-top: 10px; }
+        #printTemplate { position: absolute; left: -9999px; top: -9999px; width: 450px; background: white; padding: 30px; border: 12px solid #1c4587; text-align: center; direction: rtl; }
     </style>
 </head>
 <body>
@@ -47,6 +49,24 @@
 <div id="toast-container"></div>
 <div id="customModal" class="modal-overlay">
     <div class="modal-content" id="modalBody"></div>
+</div>
+
+<div id="printTemplate">
+    <div style="border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
+        <h1 style="margin: 0; color: #1c4587; font-family: 'Cairo';">مركز الراشد للاتصالات</h1>
+        <p style="margin: 5px 0; color: #666; font-family: 'Cairo';">وصل تفاصيل الحساب والأقساط</p>
+    </div>
+    <div style="text-align: right; font-size: 18px; line-height: 1.8; font-family: 'Cairo';">
+        <p><strong>اسم الزبون:</strong> <span id="pName"></span></p>
+        <p><strong>نوع الجهاز:</strong> <span id="pModel"></span></p>
+        <p><strong>السعر الكلي:</strong> <span id="pTotal"></span></p>
+        <hr>
+        <div style="background: #fdf2f2; padding: 15px; border-radius: 10px; text-align: center;">
+            <p style="margin: 0; color: #666;">المبلغ المتبقي بذمتك:</p>
+            <h2 style="margin: 5px 0; color: #ef4444;" id="pRem"></h2>
+        </div>
+    </div>
+    <p style="margin-top: 20px; font-size: 13px; color: #999; font-family: 'Cairo';">تاريخ الطباعة: <span id="pDate"></span></p>
 </div>
 
 <div class="container">
@@ -82,8 +102,8 @@
                 <p>السعر الكلي: <b id="viewTotal"></b></p>
                 <p>المتبقي: <b id="viewRemaining" style="color:var(--danger); font-size: 22px;"></b></p>
             </div>
-            <div id="completedMsg"></div>
             <button class="btn-wa" onclick="sendWhatsApp()">💬 إرسال تذكير بالرابط (واتساب)</button>
+            <button class="btn-print" onclick="printCustomerReceipt()">🖼️ طباعة وصل صوري</button>
         </div>
         <div class="card" id="payInputCard" style="background: #f0f9ff;">
             <h3>تسجيل قسط جديد</h3>
@@ -111,7 +131,32 @@
     const db = firebase.database();
     let allCustomers = {};
     let currentId = null;
+    let lastProcessedTime = 0;
     const SITE_URL = "https://alrashedstore.netlify.app"; 
+
+    // دالة توليد صوت "تنبيه كريستالي" برمجياً
+    function playAlertSound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine'; // صوت ناعم ونقي
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // نغمة مرتفعة مسموعة
+            
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05); // رفع الصوت بسرعة
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5); // تلاشي الصوت بهدوء
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        } catch (e) {
+            console.log("Audio Error:", e);
+        }
+    }
 
     function showToast(msg, type = 'primary') {
         const container = document.getElementById('toast-container');
@@ -120,31 +165,54 @@
         toast.style.borderRightColor = `var(--${type})`;
         toast.innerHTML = `🔔 ${msg}`;
         container.appendChild(toast);
+        
         setTimeout(() => { toast.style.opacity = '1'; }, 10);
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
     }
 
-    // تنبيهات الإدارة
     function checkSystemAlerts() {
         db.ref('lastVisit').on('value', snap => {
             const v = snap.val();
-            if(v && v.time > Date.now() - 5000) {
+            // القفل البرمجي لمنع التكرار (فحص الوقت والآي دي)
+            if(v && v.time > Date.now() - 5000 && v.time !== lastProcessedTime) {
+                lastProcessedTime = v.time;
                 showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن 👀`, 'warning');
+                
+                // تشغيل الصوت البرمجي
+                playAlertSound();
             }
         });
 
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toLocaleDateString('en-GB');
-
         Object.keys(allCustomers).forEach(id => {
             const c = allCustomers[id];
             if(c.nextDueDate) {
                 const nextDate = new Date(c.nextDueDate).toLocaleDateString('en-GB');
-                if(nextDate === tomorrowStr) {
-                    showToast(`تذكير: قسط <b>${c.name}</b> موعده غداً!`, 'danger');
-                }
+                if(nextDate === tomorrowStr) showToast(`تذكير: قسط <b>${c.name}</b> موعده غداً!`, 'danger');
             }
+        });
+    }
+
+    function printCustomerReceipt() {
+        const c = allCustomers[currentId];
+        const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+        const rem = Math.max(0, c.total - paid);
+
+        document.getElementById('pName').innerText = c.name;
+        document.getElementById('pModel').innerText = c.model;
+        document.getElementById('pTotal').innerText = formatNum(c.total) + " د.ع";
+        document.getElementById('pRem').innerText = formatNum(rem) + " د.ع";
+        document.getElementById('pDate').innerText = new Date().toLocaleDateString('ar-EG');
+
+        const template = document.getElementById('printTemplate');
+        html2canvas(template, { scale: 2 }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `وصل_${c.name}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            showToast("تم توليد الوصل بنجاح", "success");
         });
     }
 
@@ -251,19 +319,13 @@
     function sendWhatsApp() {
         const c = allCustomers[currentId];
         if(!c.phone) return alert("رقم الهاتف غير مسجل");
-        
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
-        
         const diff = c.nextDueDate - Date.now();
         const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
         let timeMsg = days > 0 ? `بعد ${days} يوم` : `متأخر منذ ${Math.abs(days)} يوم`;
-
-        // الرابط الخاص بالزبون بدلاً من الرابط العام
         const personalLink = `${SITE_URL}/?id=${currentId}`;
-
         const text = `السلام عليكم زبوننا العزيز ${c.name}.. من مركز الراشد.\nنود تذكيرك بحالة حسابك لجهاز (${c.model}):\n💰 المتبقي بذمتك: ${rem.toLocaleString()} د.ع.\n📅 موعد القسط القادم: ${timeMsg}.\n\nلمتابعة تفاصيل حسابك ودفوعاتك، يمكنك الدخول للرابط التالي:\n${personalLink}\n\nيرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
-        
         window.open(`https://wa.me/964${c.phone}?text=${encodeURIComponent(text)}`);
     }
 
