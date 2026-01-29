@@ -304,8 +304,24 @@
         const c = allCustomers[currentId];
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
-        const text = `السلام عليكم ${c.name}.. من مركز الراشد.\nالمتبقي بذمتك: ${rem.toLocaleString()} د.ع.\nرابط حسابك:\n${SITE_URL}/?id=${currentId}`;
-        window.open(`https://wa.me/964${c.phone}?text=${encodeURIComponent(text)}`);
+        
+        let daysLeft = "غير محدد";
+        if(c.nextDueDate) {
+            const diff = c.nextDueDate - Date.now();
+            daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        }
+
+        const text = `*مركز الراشد - استعلام الزبائن*%0A` +
+                     `${SITE_URL}%0A%0A` +
+                     `السلام عليكم زبوننا العزيز *${c.name}*. من مركز الراشد.%0A` +
+                     `نود تذكيرك بحالة حسابك لجهاز *(${c.model})*:%0A%0A` +
+                     `💰 *المتبقي بذمتك:* ${rem.toLocaleString()} د.ع.%0A` +
+                     `📅 *موعد القسط القادم:* بعد ${daysLeft} يوم.%0A%0A` +
+                     `لمتابعة تفاصيل حسابك ودفعاتك، يمكنك الدخول للرابط التالي:%0A` +
+                     `${SITE_URL}/?id=${currentId}%0A%0A` +
+                     `يرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
+
+        window.open(`https://wa.me/964${c.phone}?text=${text}`);
     }
 
     function triggerEditModal(idx) {
@@ -325,4 +341,3 @@
 </script>
 </body>
 </html>
-
