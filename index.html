@@ -81,6 +81,10 @@
                 <input type="number" id="totalPrice" placeholder="السعر الكلي">
                 <input type="number" id="firstPay" placeholder="المقدمة">
             </div>
+            <div style="background: #fffbeb; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px solid #fde68a;">
+                <label style="font-weight: bold; color: #92400e;">📅 يوم دفع القسط شهرياً (1-30):</label>
+                <input type="number" id="fixedDayInput" min="1" max="30" value="1" style="width: 80px; margin-right: 10px; border-color: #f59e0b;">
+            </div>
             <button class="btn-add" id="btnAddCustomer" onclick="addCustomer()">حفظ البيانات بالسحابة ☁️</button>
         </div>
         <div class="card">
@@ -98,9 +102,13 @@
             <h2 id="viewName" style="margin:0; color: var(--primary);"></h2>
             <div id="deleteUserContainer"></div> 
             <p id="viewPhoneDisplay"></p>
-            <div style="display:flex; gap:30px;">
+            <div style="display:flex; flex-direction: column; gap:5px;">
                 <p>السعر الكلي: <b id="viewTotal"></b></p>
                 <p>المتبقي: <b id="viewRemaining" style="color:var(--danger); font-size: 22px;"></b></p>
+                <p style="background: #eef2f6; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px;">
+                    📅 يوم القسط: <b id="viewFixedDayDisplay">--</b> بالشهر 
+                    <button onclick="triggerEditFixedDay()" style="background: var(--warning); color: white; border: none; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-right: 10px;">تعديل اليوم</button>
+                </p>
             </div>
             <button class="btn-wa" onclick="sendWhatsApp()">💬 إرسال تذكير بالرابط (واتساب)</button>
             <button class="btn-print" onclick="printCustomerReceipt()">🖼️ طباعة وصل صوري</button>
@@ -131,14 +139,13 @@
     const db = firebase.database();
     let allCustomers = {};
     let currentId = null;
-    let lastVisitKey = ""; // مفتاح هوية الزيارة
+    let lastVisitKey = ""; 
     const SITE_URL = "https://alrashedstore.netlify.app"; 
 
-    // دالة توليد صوت "بينغ-بونغ" مزدوج واحترافي
     function playAlertSound() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const notes = [880, 1108]; // نغمتين متناغمتين
+            const notes = [880, 1108]; 
             notes.forEach((freq, i) => {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -166,13 +173,11 @@
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 4000);
     }
 
-    // مراقبة الدخول الذكية (تعمل مع الجوال والكمبيوتر)
     function checkSystemAlerts() {
         db.ref('lastVisit').on('value', snap => {
             const v = snap.val();
             if(v && v.time) {
-                const currentKey = v.name + v.time; // هوية فريدة للزيارة
-                // التأكد من أن الزيارة جديدة (مفتاح مختلف) وحديثة (آخر 15 ثانية)
+                const currentKey = v.name + v.time;
                 if(currentKey !== lastVisitKey && v.time > Date.now() - 15000) {
                     lastVisitKey = currentKey;
                     showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن 📱`, 'warning');
@@ -218,6 +223,26 @@
     function formatNum(n) { return Number(n).toLocaleString(); }
     function getEngDate() { return new Date().toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' |'); }
 
+    // دالة الحساب الذكية المصححة لتجنب عداد الـ 36 يوم
+    function calculateSmartNextDate(targetDay) {
+        let now = new Date();
+        let day = parseInt(targetDay);
+        
+        // محاولة إنشاء تاريخ في الشهر الحالي بنفس اليوم المختار
+        let resultDate = new Date(now.getFullYear(), now.getMonth(), day);
+        resultDate.setHours(10, 0, 0, 0);
+
+        // إذا كان اليوم المختار قد مضى في الشهر الحالي، ننتقل للشهر القادم
+        if (resultDate <= now) {
+            resultDate.setMonth(resultDate.getMonth() + 1);
+            // التأكد من صحة اليوم (مثلاً لو اخترنا 30 وشهر 2 فيه 28)
+            let lastDayNextMonth = new Date(resultDate.getFullYear(), resultDate.getMonth() + 1, 0).getDate();
+            resultDate.setDate(Math.min(day, lastDayNextMonth));
+        }
+
+        return resultDate.getTime();
+    }
+
     function loadData() {
         db.ref('installments').on('value', (snap) => {
             allCustomers = snap.val() || {};
@@ -232,14 +257,18 @@
         const name = document.getElementById('custName').value.trim();
         const total = parseFloat(document.getElementById('totalPrice').value);
         const first = parseFloat(document.getElementById('firstPay').value) || 0;
+        const fixedDay = parseInt(document.getElementById('fixedDayInput').value) || 1;
+
         if(!name || isNaN(total)) return showToast("أكمل البيانات", "danger");
         btn.disabled = true;
         const date = getEngDate();
-        let dueDate = new Date();
-        dueDate.setMonth(dueDate.getMonth() + 1);
+        
+        let nextDueDate = calculateSmartNextDate(fixedDay);
+
         db.ref('installments').push({
             name, phone: document.getElementById('custPhone').value, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
-            nextDueDate: dueDate.getTime(),
+            fixedDay: fixedDay,
+            nextDueDate: nextDueDate,
             payments: first > 0 ? [{amount: first, date: date, time: Date.now()}] : []
         }).then(() => {
             showToast("تم الحفظ", "success");
@@ -271,6 +300,7 @@
         document.getElementById('viewName').innerText = c.name;
         document.getElementById('viewPhoneDisplay').innerHTML = `الجهاز: ${c.model} <br> الهاتف: ${c.phone || 'غير مسجل'}`;
         document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
+        document.getElementById('viewFixedDayDisplay').innerText = c.fixedDay || "غير محدد";
         document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف</button>`;
         const log = document.getElementById('paymentsLog');
         log.innerHTML = '';
@@ -287,14 +317,44 @@
         document.getElementById('payInputCard').style.display = (remaining <= 0) ? 'none' : 'block';
     }
 
+    function triggerEditFixedDay() {
+        const c = allCustomers[currentId];
+        openModal(`
+            <h3>تعديل يوم القسط</h3>
+            <p>اختر يوم الشهر (1-30)</p>
+            <input type="number" id="editFixedDayVal" min="1" max="30" value="${c.fixedDay || 1}">
+            <div class="modal-btns">
+                <button class="btn-main" onclick="saveFixedDayUpdate()">حفظ التغيير</button>
+                <button onclick="closeModal()">إلغاء</button>
+            </div>
+        `);
+    }
+
+    function saveFixedDayUpdate() {
+        const newDay = parseInt(document.getElementById('editFixedDayVal').value);
+        if(newDay < 1 || newDay > 30) return alert("خطأ في اليوم");
+        
+        let newNextDate = calculateSmartNextDate(newDay);
+        db.ref('installments/' + currentId).update({
+            fixedDay: newDay,
+            nextDueDate: newNextDate
+        }).then(() => {
+            showToast("تم تحديث اليوم بنجاح", "success");
+            closeModal();
+        });
+    }
+
     function addInstallment() {
         const val = parseFloat(document.getElementById('newPay').value);
         if(isNaN(val) || val <= 0) return;
-        const payments = allCustomers[currentId].payments || [];
+        const c = allCustomers[currentId];
+        const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
-        let nextDate = new Date();
-        nextDate.setMonth(nextDate.getMonth() + 1);
-        db.ref('installments/' + currentId).update({ payments, nextDueDate: nextDate.getTime() }).then(() => {
+        
+        // عند الدفع، نحسب القسط القادم بناءً على اليوم الثابت
+        let nextDate = calculateSmartNextDate(c.fixedDay || 1);
+
+        db.ref('installments/' + currentId).update({ payments, nextDueDate: nextDate }).then(() => {
             showToast("تم الدفع", "success");
             document.getElementById('newPay').value = '';
         });
