@@ -26,6 +26,13 @@
         .btn-back { background: #64748b; color: white; margin-bottom: 15px; }
         .btn-edit { background: var(--warning); color: white; font-size: 12px; margin-right: 10px; }
         .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
+        
+        /* تنسيق أزرار الفلترة الجديدة */
+        .filter-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        .filter-btn { flex: 1; min-width: 100px; padding: 8px; font-size: 12px; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-btn span { display: block; font-size: 10px; opacity: 0.8; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 15px; text-align: right; border-bottom: 1px solid #eee; }
         tr:hover { background: #f8fafc; cursor: pointer; }
@@ -33,6 +40,8 @@
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
         .badge-debt { background: #fee2e2; color: #b91c1c; }
         .badge-paid { background: #d1fae5; color: #065f46; border: 2px solid #065f46; }
+        .badge-warning { background: #fffbeb; color: #92400e; border: 1px solid #f59e0b; }
+        
         #toast-container { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 10000; pointer-events: none; }
         .toast { background: white; padding: 12px 25px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.4s ease; border-right: 4px solid var(--primary); font-weight: bold; }
         .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 9999; justify-content:center; align-items:center; backdrop-filter: blur(4px); }
@@ -72,6 +81,7 @@
 <div class="container">
     <div id="mainView">
         <header><h1>📝 مركز الراشد - الأقساط</h1></header>
+        
         <div class="card">
             <h2>تسجيل بيع جديد</h2>
             <div class="grid-form">
@@ -87,10 +97,19 @@
             </div>
             <button class="btn-add" id="btnAddCustomer" onclick="addCustomer()">حفظ البيانات بالسحابة ☁️</button>
         </div>
+
         <div class="card">
-            <input type="text" id="search" placeholder="🔍 ابحث عن اسم زبون..." onkeyup="renderTable()" style="width: 95%;">
+            <input type="text" id="search" placeholder="🔍 ابحث عن اسم زبون..." onkeyup="renderTable()" style="width: 95%; margin-bottom: 15px;">
+            
+            <div class="filter-container">
+                <button class="filter-btn active" id="f-all" onclick="setFilter('all')">الكل</button>
+                <button class="filter-btn" id="f-today" onclick="setFilter('today')">موعدهم اليوم</button>
+                <button class="filter-btn" id="f-soon" onclick="setFilter('soon')">باقي 1-3 أيام</button>
+                <button class="filter-btn" id="f-late" onclick="setFilter('late')" style="color:var(--danger)">المتأخرين ⚠️</button>
+            </div>
+
             <table>
-                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>الحالة</th></tr></thead>
+                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>حالة القسط</th></tr></thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
@@ -140,6 +159,7 @@
     let allCustomers = {};
     let currentId = null;
     let lastVisitKey = ""; 
+    let activeFilter = 'all'; // الفلتر الافتراضي
     const SITE_URL = "https://alrashedstore.netlify.app"; 
 
     function playAlertSound() {
@@ -185,14 +205,6 @@
                 }
             }
         });
-
-        const tomorrowStr = new Date(Date.now() + 86400000).toLocaleDateString('en-GB');
-        Object.keys(allCustomers).forEach(id => {
-            const c = allCustomers[id];
-            if(c.nextDueDate && new Date(c.nextDueDate).toLocaleDateString('en-GB') === tomorrowStr) {
-                showToast(`تذكير: قسط <b>${c.name}</b> موعده غداً!`, 'danger');
-            }
-        });
     }
 
     function printCustomerReceipt() {
@@ -223,23 +235,16 @@
     function formatNum(n) { return Number(n).toLocaleString(); }
     function getEngDate() { return new Date().toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' |'); }
 
-    // دالة الحساب الذكية المصححة لتجنب عداد الـ 36 يوم
     function calculateSmartNextDate(targetDay) {
         let now = new Date();
         let day = parseInt(targetDay);
-        
-        // محاولة إنشاء تاريخ في الشهر الحالي بنفس اليوم المختار
         let resultDate = new Date(now.getFullYear(), now.getMonth(), day);
         resultDate.setHours(10, 0, 0, 0);
-
-        // إذا كان اليوم المختار قد مضى في الشهر الحالي، ننتقل للشهر القادم
         if (resultDate <= now) {
             resultDate.setMonth(resultDate.getMonth() + 1);
-            // التأكد من صحة اليوم (مثلاً لو اخترنا 30 وشهر 2 فيه 28)
             let lastDayNextMonth = new Date(resultDate.getFullYear(), resultDate.getMonth() + 1, 0).getDate();
             resultDate.setDate(Math.min(day, lastDayNextMonth));
         }
-
         return resultDate.getTime();
     }
 
@@ -249,6 +254,61 @@
             renderTable();
             checkSystemAlerts();
             if(currentId) showCustomer(currentId);
+        });
+    }
+
+    function setFilter(filter) {
+        activeFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('f-' + filter).classList.add('active');
+        renderTable();
+    }
+
+    function renderTable() {
+        const term = document.getElementById('search').value.toLowerCase();
+        const body = document.getElementById('tableBody');
+        body.innerHTML = '';
+        
+        const now = new Date();
+        now.setHours(0,0,0,0);
+
+        Object.keys(allCustomers).forEach(id => {
+            const c = allCustomers[id];
+            if(!c.name.toLowerCase().includes(term)) return;
+
+            const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+            const rem = Math.max(0, c.total - paid);
+            
+            // حساب الأيام المتبقية
+            let daysDiff = 999;
+            if(c.nextDueDate && rem > 0) {
+                const dueDate = new Date(c.nextDueDate);
+                dueDate.setHours(0,0,0,0);
+                const timeDiff = dueDate.getTime() - now.getTime();
+                daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            }
+
+            // تصفية النتائج بناءً على الفلتر المختار
+            let show = false;
+            if(activeFilter === 'all') show = true;
+            else if(activeFilter === 'today' && daysDiff === 0) show = true;
+            else if(activeFilter === 'soon' && daysDiff >= 1 && daysDiff <= 3) show = true;
+            else if(activeFilter === 'late' && daysDiff < 0) show = true;
+
+            if(!show) return;
+
+            let statusBadge = '';
+            if(rem <= 0) statusBadge = '<span class="badge badge-paid">تم الدفع</span>';
+            else if(daysDiff < 0) statusBadge = `<span class="badge badge-debt">متأخر ${Math.abs(daysDiff)} يوم</span>`;
+            else if(daysDiff === 0) statusBadge = '<span class="badge badge-warning">موعده اليوم!</span>';
+            else statusBadge = `<span class="badge badge-debt">باقي ${daysDiff} يوم</span>`;
+
+            body.innerHTML += `<tr onclick="showCustomer('${id}')" style="${daysDiff < 0 ? 'background:#fff5f5' : ''}">
+                <td><b>${c.name}</b></td>
+                <td>${c.model}</td>
+                <td>${formatNum(rem)} د.ع</td>
+                <td>${statusBadge}</td>
+            </tr>`;
         });
     }
 
@@ -262,7 +322,6 @@
         if(!name || isNaN(total)) return showToast("أكمل البيانات", "danger");
         btn.disabled = true;
         const date = getEngDate();
-        
         let nextDueDate = calculateSmartNextDate(fixedDay);
 
         db.ref('installments').push({
@@ -274,20 +333,6 @@
             showToast("تم الحفظ", "success");
             document.querySelectorAll('.grid-form input').forEach(i => i.value = '');
             btn.disabled = false;
-        });
-    }
-
-    function renderTable() {
-        const term = document.getElementById('search').value.toLowerCase();
-        const body = document.getElementById('tableBody');
-        body.innerHTML = '';
-        Object.keys(allCustomers).forEach(id => {
-            const c = allCustomers[id];
-            if(!c.name.toLowerCase().includes(term)) return;
-            const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
-            const rem = Math.max(0, c.total - paid);
-            body.innerHTML += `<tr onclick="showCustomer('${id}')"><td><b>${c.name}</b></td><td>${c.model}</td><td>${formatNum(rem)} د.ع</td>
-                <td><span class="badge ${rem <= 0 ? 'badge-paid' : 'badge-debt'}">${rem <= 0 ? 'تم الدفع' : 'مطلوب'}</span></td></tr>`;
         });
     }
 
@@ -333,12 +378,8 @@
     function saveFixedDayUpdate() {
         const newDay = parseInt(document.getElementById('editFixedDayVal').value);
         if(newDay < 1 || newDay > 30) return alert("خطأ في اليوم");
-        
         let newNextDate = calculateSmartNextDate(newDay);
-        db.ref('installments/' + currentId).update({
-            fixedDay: newDay,
-            nextDueDate: newNextDate
-        }).then(() => {
+        db.ref('installments/' + currentId).update({ fixedDay: newDay, nextDueDate: newNextDate }).then(() => {
             showToast("تم تحديث اليوم بنجاح", "success");
             closeModal();
         });
@@ -350,10 +391,7 @@
         const c = allCustomers[currentId];
         const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
-        
-        // عند الدفع، نحسب القسط القادم بناءً على اليوم الثابت
         let nextDate = calculateSmartNextDate(c.fixedDay || 1);
-
         db.ref('installments/' + currentId).update({ payments, nextDueDate: nextDate }).then(() => {
             showToast("تم الدفع", "success");
             document.getElementById('newPay').value = '';
@@ -364,13 +402,11 @@
         const c = allCustomers[currentId];
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
-        
         let daysLeft = "غير محدد";
         if(c.nextDueDate) {
             const diff = c.nextDueDate - Date.now();
             daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
         }
-
         const text = `*مركز الراشد - استعلام الزبائن*%0A` +
                      `${SITE_URL}%0A%0A` +
                      `السلام عليكم زبوننا العزيز *${c.name}*. من مركز الراشد.%0A` +
@@ -380,7 +416,6 @@
                      `لمتابعة تفاصيل حسابك ودفعاتك، يمكنك الدخول للرابط التالي:%0A` +
                      `${SITE_URL}/?id=${currentId}%0A%0A` +
                      `يرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
-
         window.open(`https://wa.me/964${c.phone}?text=${text}`);
     }
 
@@ -401,3 +436,4 @@
 </script>
 </body>
 </html>
+
