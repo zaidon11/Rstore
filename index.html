@@ -27,16 +27,13 @@
         .btn-edit { background: var(--warning); color: white; font-size: 12px; margin-right: 10px; }
         .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
         
-        /* تنسيق أزرار الفلترة الجديدة */
         .filter-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
-        .filter-btn { flex: 1; min-width: 100px; padding: 8px; font-size: 12px; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; }
+        .filter-btn { flex: 1; min-width: 100px; padding: 10px; font-size: 14px; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; }
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        .filter-btn span { display: block; font-size: 10px; opacity: 0.8; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 15px; text-align: right; border-bottom: 1px solid #eee; }
         tr:hover { background: #f8fafc; cursor: pointer; }
-        .date-text { direction: ltr; display: inline-block; font-family: 'monospace'; font-size: 17px; font-weight: bold; color: #475569; background: #eef2f6; padding: 4px 10px; border-radius: 6px; }
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
         .badge-debt { background: #fee2e2; color: #b91c1c; }
         .badge-paid { background: #d1fae5; color: #065f46; border: 2px solid #065f46; }
@@ -63,9 +60,9 @@
 <div id="printTemplate">
     <div style="border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
         <h1 style="margin: 0; color: #1c4587; font-family: 'Cairo';">مركز الراشد للاتصالات</h1>
-        <p style="margin: 5px 0; color: #666; font-family: 'Cairo';">وصل تفاصيل الحساب والأقساط</p>
+        <p style="margin: 5px 0; color: #666;">وصل تفاصيل الحساب</p>
     </div>
-    <div style="text-align: right; font-size: 18px; line-height: 1.8; font-family: 'Cairo';">
+    <div style="text-align: right; font-size: 18px; line-height: 1.8;">
         <p><strong>اسم الزبون:</strong> <span id="pName"></span></p>
         <p><strong>نوع الجهاز:</strong> <span id="pModel"></span></p>
         <p><strong>السعر الكلي:</strong> <span id="pTotal"></span></p>
@@ -75,7 +72,7 @@
             <h2 style="margin: 5px 0; color: #ef4444;" id="pRem"></h2>
         </div>
     </div>
-    <p style="margin-top: 20px; font-size: 13px; color: #999; font-family: 'Cairo';">تاريخ الطباعة: <span id="pDate"></span></p>
+    <p style="margin-top: 20px; font-size: 13px; color: #999;">تاريخ الطباعة: <span id="pDate"></span></p>
 </div>
 
 <div class="container">
@@ -91,55 +88,54 @@
                 <input type="number" id="totalPrice" placeholder="السعر الكلي">
                 <input type="number" id="firstPay" placeholder="المقدمة">
             </div>
-            <div style="background: #fffbeb; padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px solid #fde68a;">
-                <label style="font-weight: bold; color: #92400e;">📅 يوم دفع القسط شهرياً (1-30):</label>
-                <input type="number" id="fixedDayInput" min="1" max="30" value="1" style="width: 80px; margin-right: 10px; border-color: #f59e0b;">
+            <div style="background: #fffbeb; padding: 15px; border-radius: 10px; margin-top: 10px; border: 1px solid #fde68a;">
+                <label style="font-weight: bold; color: #92400e;">📅 يوم دفع القسط شهرياً (مثلاً يوم 10):</label>
+                <input type="number" id="fixedDayInput" min="1" max="30" value="10" style="width: 100px; margin-right: 10px;">
             </div>
             <button class="btn-add" id="btnAddCustomer" onclick="addCustomer()">حفظ البيانات بالسحابة ☁️</button>
         </div>
 
         <div class="card">
-            <input type="text" id="search" placeholder="🔍 ابحث عن اسم زبون..." onkeyup="renderTable()" style="width: 95%; margin-bottom: 15px;">
+            <input type="text" id="search" placeholder="🔍 ابحث عن اسم زبون..." onkeyup="renderTable()" style="margin-bottom: 15px;">
             
             <div class="filter-container">
                 <button class="filter-btn active" id="f-all" onclick="setFilter('all')">الكل</button>
-                <button class="filter-btn" id="f-today" onclick="setFilter('today')">موعدهم اليوم</button>
+                <button class="filter-btn" id="f-today" onclick="setFilter('today')">قسط اليوم</button>
                 <button class="filter-btn" id="f-soon" onclick="setFilter('soon')">باقي 1-3 أيام</button>
                 <button class="filter-btn" id="f-late" onclick="setFilter('late')" style="color:var(--danger)">المتأخرين ⚠️</button>
             </div>
 
             <table>
-                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>حالة القسط</th></tr></thead>
+                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>الحالة</th></tr></thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
     </div>
 
     <div id="customerView">
-        <button class="btn-back" onclick="showMain()">⬅ رجوع للقائمة</button>
+        <button class="btn-back" onclick="showMain()">⬅ رجوع</button>
         <div class="card">
-            <h2 id="viewName" style="margin:0; color: var(--primary);"></h2>
+            <h2 id="viewName" style="color: var(--primary);"></h2>
             <div id="deleteUserContainer"></div> 
             <p id="viewPhoneDisplay"></p>
-            <div style="display:flex; flex-direction: column; gap:5px;">
+            <div style="display:flex; flex-direction: column; gap:10px;">
                 <p>السعر الكلي: <b id="viewTotal"></b></p>
-                <p>المتبقي: <b id="viewRemaining" style="color:var(--danger); font-size: 22px;"></b></p>
-                <p style="background: #eef2f6; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px;">
-                    📅 يوم القسط: <b id="viewFixedDayDisplay">--</b> بالشهر 
-                    <button onclick="triggerEditFixedDay()" style="background: var(--warning); color: white; border: none; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-right: 10px;">تعديل اليوم</button>
+                <p>المتبقي: <b id="viewRemaining" style="color:var(--danger); font-size: 24px;"></b></p>
+                <p style="background: #eef2f6; padding: 10px; border-radius: 8px;">
+                    📅 يوم الاستحقاق الثابت: <b id="viewFixedDayDisplay">--</b> بالشهر
                 </p>
             </div>
-            <button class="btn-wa" onclick="sendWhatsApp()">💬 إرسال تذكير بالرابط (واتساب)</button>
+            <button class="btn-wa" onclick="sendWhatsApp()">💬 إرسال تذكير واتساب</button>
             <button class="btn-print" onclick="printCustomerReceipt()">🖼️ طباعة وصل صوري</button>
         </div>
         <div class="card" id="payInputCard" style="background: #f0f9ff;">
             <h3>تسجيل قسط جديد</h3>
             <div class="grid-form">
-                <input type="number" id="newPay" placeholder="المبلغ">
+                <input type="number" id="newPay" placeholder="المبلغ المستلم">
                 <button class="btn-main" id="btnConfirmPay" onclick="addInstallment()">تأكيد الدفع</button>
             </div>
         </div>
-        <div class="card"><h3>سجل المدفوعات (التعديل متاح لـ 10 دقائق)</h3><div id="paymentsLog"></div></div>
+        <div class="card"><h3>سجل المدفوعات</h3><div id="paymentsLog"></div></div>
     </div>
 </div>
 
@@ -159,28 +155,8 @@
     let allCustomers = {};
     let currentId = null;
     let lastVisitKey = ""; 
-    let activeFilter = 'all'; // الفلتر الافتراضي
+    let activeFilter = 'all';
     const SITE_URL = "https://alrashedstore.netlify.app"; 
-
-    function playAlertSound() {
-        try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const notes = [880, 1108]; 
-            notes.forEach((freq, i) => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.12));
-                gain.gain.setValueAtTime(0, audioCtx.currentTime + (i * 0.12));
-                gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + (i * 0.12) + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (i * 0.12) + 0.4);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(audioCtx.currentTime + (i * 0.12));
-                osc.stop(audioCtx.currentTime + (i * 0.12) + 0.4);
-            });
-        } catch (e) { console.log("Audio Error"); }
-    }
 
     function showToast(msg, type = 'primary') {
         const container = document.getElementById('toast-container');
@@ -196,56 +172,26 @@
     function checkSystemAlerts() {
         db.ref('lastVisit').on('value', snap => {
             const v = snap.val();
-            if(v && v.time) {
+            if(v && v.time && v.time > Date.now() - 15000) {
                 const currentKey = v.name + v.time;
-                if(currentKey !== lastVisitKey && v.time > Date.now() - 15000) {
+                if(currentKey !== lastVisitKey) {
                     lastVisitKey = currentKey;
-                    showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن 📱`, 'warning');
-                    playAlertSound();
+                    showToast(`الزبون <b>${v.name}</b> يتصفح حسابه الآن`, 'warning');
                 }
             }
         });
     }
 
-    function printCustomerReceipt() {
-        const c = allCustomers[currentId];
-        const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
-        const rem = Math.max(0, c.total - paid);
-        document.getElementById('pName').innerText = c.name;
-        document.getElementById('pModel').innerText = c.model;
-        document.getElementById('pTotal').innerText = formatNum(c.total) + " د.ع";
-        document.getElementById('pRem').innerText = formatNum(rem) + " د.ع";
-        document.getElementById('pDate').innerText = new Date().toLocaleDateString('ar-EG');
-        const template = document.getElementById('printTemplate');
-        html2canvas(template, { scale: 2 }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = `وصل_${c.name}.png`;
-            link.href = canvas.toDataURL("image/png");
-            link.click();
-            showToast("تم توليد الوصل", "success");
-        });
-    }
-
-    function closeModal() { document.getElementById('customModal').style.display = 'none'; }
-    function openModal(html) {
-        document.getElementById('modalBody').innerHTML = html;
-        document.getElementById('customModal').style.display = 'flex';
-    }
-
-    function formatNum(n) { return Number(n).toLocaleString(); }
-    function getEngDate() { return new Date().toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' |'); }
-
-    function calculateSmartNextDate(targetDay) {
+    function calculateFixedNextDate(fixedDay) {
         let now = new Date();
-        let day = parseInt(targetDay);
-        let resultDate = new Date(now.getFullYear(), now.getMonth(), day);
-        resultDate.setHours(10, 0, 0, 0);
-        if (resultDate <= now) {
-            resultDate.setMonth(resultDate.getMonth() + 1);
-            let lastDayNextMonth = new Date(resultDate.getFullYear(), resultDate.getMonth() + 1, 0).getDate();
-            resultDate.setDate(Math.min(day, lastDayNextMonth));
+        let day = parseInt(fixedDay);
+        let nextDate = new Date(now.getFullYear(), now.getMonth(), day, 10, 0, 0);
+        if (nextDate <= now) {
+            nextDate.setMonth(nextDate.getMonth() + 1);
         }
-        return resultDate.getTime();
+        let lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+        nextDate.setDate(Math.min(day, lastDay));
+        return nextDate.getTime();
     }
 
     function loadData() {
@@ -268,7 +214,6 @@
         const term = document.getElementById('search').value.toLowerCase();
         const body = document.getElementById('tableBody');
         body.innerHTML = '';
-        
         const now = new Date();
         now.setHours(0,0,0,0);
 
@@ -279,109 +224,51 @@
             const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
             const rem = Math.max(0, c.total - paid);
             
-            // حساب الأيام المتبقية
-            let daysDiff = 999;
+            let daysDiff = 0;
             if(c.nextDueDate && rem > 0) {
                 const dueDate = new Date(c.nextDueDate);
                 dueDate.setHours(0,0,0,0);
-                const timeDiff = dueDate.getTime() - now.getTime();
-                daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                daysDiff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
             }
 
-            // تصفية النتائج بناءً على الفلتر المختار
-            let show = false;
-            if(activeFilter === 'all') show = true;
-            else if(activeFilter === 'today' && daysDiff === 0) show = true;
-            else if(activeFilter === 'soon' && daysDiff >= 1 && daysDiff <= 3) show = true;
-            else if(activeFilter === 'late' && daysDiff < 0) show = true;
+            let show = (activeFilter === 'all') || 
+                       (activeFilter === 'today' && daysDiff === 0) ||
+                       (activeFilter === 'soon' && daysDiff >= 1 && daysDiff <= 3) ||
+                       (activeFilter === 'late' && daysDiff < 0);
 
             if(!show) return;
 
             let statusBadge = '';
             if(rem <= 0) statusBadge = '<span class="badge badge-paid">تم الدفع</span>';
             else if(daysDiff < 0) statusBadge = `<span class="badge badge-debt">متأخر ${Math.abs(daysDiff)} يوم</span>`;
-            else if(daysDiff === 0) statusBadge = '<span class="badge badge-warning">موعده اليوم!</span>';
+            else if(daysDiff === 0) statusBadge = '<span class="badge badge-warning">الموعد اليوم</span>';
             else statusBadge = `<span class="badge badge-debt">باقي ${daysDiff} يوم</span>`;
 
-            body.innerHTML += `<tr onclick="showCustomer('${id}')" style="${daysDiff < 0 ? 'background:#fff5f5' : ''}">
+            body.innerHTML += `<tr onclick="showCustomer('${id}')">
                 <td><b>${c.name}</b></td>
                 <td>${c.model}</td>
-                <td>${formatNum(rem)} د.ع</td>
+                <td>${formatNum(rem)}</td>
                 <td>${statusBadge}</td>
             </tr>`;
         });
     }
 
     function addCustomer() {
-        const btn = document.getElementById('btnAddCustomer');
         const name = document.getElementById('custName').value.trim();
         const total = parseFloat(document.getElementById('totalPrice').value);
         const first = parseFloat(document.getElementById('firstPay').value) || 0;
-        const fixedDay = parseInt(document.getElementById('fixedDayInput').value) || 1;
+        const fixedDay = parseInt(document.getElementById('fixedDayInput').value) || 10;
 
         if(!name || isNaN(total)) return showToast("أكمل البيانات", "danger");
-        btn.disabled = true;
-        const date = getEngDate();
-        let nextDueDate = calculateSmartNextDate(fixedDay);
-
+        
+        let nextDueDate = calculateFixedNextDate(fixedDay);
         db.ref('installments').push({
-            name, phone: document.getElementById('custPhone').value, model: document.getElementById('phoneModel').value, total, purchaseDate: date,
-            fixedDay: fixedDay,
-            nextDueDate: nextDueDate,
-            payments: first > 0 ? [{amount: first, date: date, time: Date.now()}] : []
+            name, phone: document.getElementById('custPhone').value, model: document.getElementById('phoneModel').value, 
+            total, purchaseDate: getEngDate(), fixedDay, nextDueDate,
+            payments: first > 0 ? [{amount: first, date: getEngDate(), time: Date.now()}] : []
         }).then(() => {
-            showToast("تم الحفظ", "success");
+            showToast("تم الحفظ بنجاح", "success");
             document.querySelectorAll('.grid-form input').forEach(i => i.value = '');
-            btn.disabled = false;
-        });
-    }
-
-    function showCustomer(id) {
-        currentId = id;
-        const c = allCustomers[id];
-        if(!c) return showMain();
-        document.getElementById('mainView').style.display = 'none';
-        document.getElementById('customerView').style.display = 'block';
-        document.getElementById('viewName').innerText = c.name;
-        document.getElementById('viewPhoneDisplay').innerHTML = `الجهاز: ${c.model} <br> الهاتف: ${c.phone || 'غير مسجل'}`;
-        document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
-        document.getElementById('viewFixedDayDisplay').innerText = c.fixedDay || "غير محدد";
-        document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="triggerDeleteUserModal()">🗑️ حذف</button>`;
-        const log = document.getElementById('paymentsLog');
-        log.innerHTML = '';
-        let totalPaid = 0;
-        if (c.payments) {
-            c.payments.forEach((p, idx) => {
-                totalPaid += p.amount;
-                const canEdit = (Date.now() - p.time) / 1000 / 60 < 10;
-                log.innerHTML += `<div class="payment-item"><div><b>${formatNum(p.amount)} د.ع</b> ${canEdit ? `<button class="btn-edit" onclick="triggerEditModal(${idx})">تعديل</button>` : ''}</div><span>${p.date}</span></div>`;
-            });
-        }
-        const remaining = Math.max(0, c.total - totalPaid);
-        document.getElementById('viewRemaining').innerText = formatNum(remaining) + " د.ع";
-        document.getElementById('payInputCard').style.display = (remaining <= 0) ? 'none' : 'block';
-    }
-
-    function triggerEditFixedDay() {
-        const c = allCustomers[currentId];
-        openModal(`
-            <h3>تعديل يوم القسط</h3>
-            <p>اختر يوم الشهر (1-30)</p>
-            <input type="number" id="editFixedDayVal" min="1" max="30" value="${c.fixedDay || 1}">
-            <div class="modal-btns">
-                <button class="btn-main" onclick="saveFixedDayUpdate()">حفظ التغيير</button>
-                <button onclick="closeModal()">إلغاء</button>
-            </div>
-        `);
-    }
-
-    function saveFixedDayUpdate() {
-        const newDay = parseInt(document.getElementById('editFixedDayVal').value);
-        if(newDay < 1 || newDay > 30) return alert("خطأ في اليوم");
-        let newNextDate = calculateSmartNextDate(newDay);
-        db.ref('installments/' + currentId).update({ fixedDay: newDay, nextDueDate: newNextDate }).then(() => {
-            showToast("تم تحديث اليوم بنجاح", "success");
-            closeModal();
         });
     }
 
@@ -391,9 +278,18 @@
         const c = allCustomers[currentId];
         const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
-        let nextDate = calculateSmartNextDate(c.fixedDay || 1);
-        db.ref('installments/' + currentId).update({ payments, nextDueDate: nextDate }).then(() => {
-            showToast("تم الدفع", "success");
+        
+        // ترحيل تاريخ الاستحقاق شهراً كاملاً مع الحفاظ على اليوم الثابت
+        let currentNext = new Date(c.nextDueDate);
+        currentNext.setMonth(currentNext.getMonth() + 1);
+        let lastDay = new Date(currentNext.getFullYear(), currentNext.getMonth() + 1, 0).getDate();
+        currentNext.setDate(Math.min(c.fixedDay, lastDay));
+
+        db.ref('installments/' + currentId).update({ 
+            payments: payments, 
+            nextDueDate: currentNext.getTime() 
+        }).then(() => {
+            showToast("تم تسجيل الدفعة وتحديث التاريخ", "success");
             document.getElementById('newPay').value = '';
         });
     }
@@ -402,38 +298,57 @@
         const c = allCustomers[currentId];
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
-        let daysLeft = "غير محدد";
-        if(c.nextDueDate) {
-            const diff = c.nextDueDate - Date.now();
-            daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
-        }
-        const text = `*مركز الراشد - استعلام الزبائن*%0A` +
-                     `${SITE_URL}%0A%0A` +
-                     `السلام عليكم زبوننا العزيز *${c.name}*. من مركز الراشد.%0A` +
-                     `نود تذكيرك بحالة حسابك لجهاز *(${c.model})*:%0A%0A` +
-                     `💰 *المتبقي بذمتك:* ${rem.toLocaleString()} د.ع.%0A` +
-                     `📅 *موعد القسط القادم:* بعد ${daysLeft} يوم.%0A%0A` +
-                     `لمتابعة تفاصيل حسابك ودفعاتك، يمكنك الدخول للرابط التالي:%0A` +
-                     `${SITE_URL}/?id=${currentId}%0A%0A` +
-                     `يرجى مراجعة المركز في الموعد المحدد. شكراً لثقتك بنا.`;
+        const now = new Date(); now.setHours(0,0,0,0);
+        const dueDate = new Date(c.nextDueDate); dueDate.setHours(0,0,0,0);
+        const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+
+        let msg = diff < 0 ? `⚠️ متأخر بـ ${Math.abs(diff)} يوم` : (diff === 0 ? `📅 الموعد اليوم` : `📅 الموعد بعد ${diff} يوم`);
+        const text = `*مركز الراشد للاتصالات*%0Aالسلام عليكم *${c.name}*%0Aالمتبقي من حسابك: ${formatNum(rem)} د.ع%0A${msg}%0Aرابط حسابك:%0A${SITE_URL}/?id=${currentId}`;
         window.open(`https://wa.me/964${c.phone}?text=${text}`);
     }
 
-    function triggerEditModal(idx) {
-        const currentAmount = allCustomers[currentId].payments[idx].amount;
-        openModal(`<h3>تعديل القسط</h3><input type="number" id="editAmountInput" value="${currentAmount}"><div class="modal-btns"><button onclick="saveEditedPayment(${idx})">حفظ</button><button onclick="closeModal()">إلغاء</button></div>`);
+    function showCustomer(id) {
+        currentId = id; const c = allCustomers[id]; if(!c) return showMain();
+        document.getElementById('mainView').style.display = 'none';
+        document.getElementById('customerView').style.display = 'block';
+        document.getElementById('viewName').innerText = c.name;
+        document.getElementById('viewPhoneDisplay').innerText = `الجهاز: ${c.model} | الهاتف: ${c.phone}`;
+        document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
+        document.getElementById('viewFixedDayDisplay').innerText = c.fixedDay;
+        document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="confirmDeleteUser()">🗑️ حذف الزبون</button>`;
+        const log = document.getElementById('paymentsLog'); log.innerHTML = '';
+        let totalPaid = 0;
+        if(c.payments) {
+            c.payments.forEach(p => {
+                totalPaid += p.amount;
+                log.innerHTML += `<div class="payment-item"><b>${formatNum(p.amount)} د.ع</b> <span>${p.date}</span></div>`;
+            });
+        }
+        document.getElementById('viewRemaining').innerText = formatNum(c.total - totalPaid) + " د.ع";
+        document.getElementById('payInputCard').style.display = (c.total - totalPaid <= 0) ? 'none' : 'block';
     }
-    function saveEditedPayment(idx) {
-        const amount = parseFloat(document.getElementById('editAmountInput').value);
-        const payments = [...allCustomers[currentId].payments];
-        payments[idx].amount = amount;
-        db.ref('installments/' + currentId + '/payments').set(payments).then(() => { closeModal(); });
+
+    function printCustomerReceipt() {
+        const c = allCustomers[currentId];
+        const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+        document.getElementById('pName').innerText = c.name;
+        document.getElementById('pModel').innerText = c.model;
+        document.getElementById('pTotal').innerText = formatNum(c.total);
+        document.getElementById('pRem').innerText = formatNum(c.total - paid);
+        document.getElementById('pDate').innerText = new Date().toLocaleDateString('ar-EG');
+        html2canvas(document.getElementById('printTemplate'), { scale: 2 }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `وصل_${c.name}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
     }
-    function triggerDeleteUserModal() { openModal(`<h3>حذف الزبون؟</h3><div class="modal-btns"><button style="background:var(--danger);color:white;" onclick="confirmDeleteUser()">نعم</button><button onclick="closeModal()">إلغاء</button></div>`); }
-    function confirmDeleteUser() { db.ref('installments/' + currentId).remove().then(() => { closeModal(); showMain(); }); }
+
     function showMain() { currentId = null; document.getElementById('mainView').style.display = 'block'; document.getElementById('customerView').style.display = 'none'; }
+    function confirmDeleteUser() { if(confirm("هل أنت متأكد من الحذف؟")) db.ref('installments/' + currentId).remove().then(() => showMain()); }
+    function formatNum(n) { return Number(n).toLocaleString(); }
+    function getEngDate() { return new Date().toLocaleString('en-GB'); }
     loadData();
 </script>
 </body>
 </html>
-
