@@ -24,7 +24,6 @@
         .btn-wa { background: #25D366; color: white; width: 100%; margin-top: 10px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-print { background: #10b981; color: white; width: 100%; margin-top: 10px; font-size: 16px; }
         .btn-back { background: #64748b; color: white; margin-bottom: 15px; }
-        .btn-edit { background: var(--warning); color: white; font-size: 12px; margin-right: 10px; }
         .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
         
         .filter-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
@@ -41,10 +40,6 @@
         
         #toast-container { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 10000; pointer-events: none; }
         .toast { background: white; padding: 12px 25px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.4s ease; border-right: 4px solid var(--primary); font-weight: bold; }
-        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 9999; justify-content:center; align-items:center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: zoomIn 0.3s ease; }
-        @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .modal-btns { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
         #customerView { display: none; }
         .payment-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; }
         #printTemplate { position: absolute; left: -9999px; top: -9999px; width: 450px; background: white; padding: 30px; border: 12px solid #1c4587; text-align: center; direction: rtl; }
@@ -53,9 +48,6 @@
 <body>
 
 <div id="toast-container"></div>
-<div id="customModal" class="modal-overlay">
-    <div class="modal-content" id="modalBody"></div>
-</div>
 
 <div id="printTemplate">
     <div style="border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
@@ -279,7 +271,6 @@
         const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
         
-        // ترحيل تاريخ الاستحقاق شهراً كاملاً مع الحفاظ على اليوم الثابت
         let currentNext = new Date(c.nextDueDate);
         currentNext.setMonth(currentNext.getMonth() + 1);
         let lastDay = new Date(currentNext.getFullYear(), currentNext.getMonth() + 1, 0).getDate();
@@ -302,8 +293,21 @@
         const dueDate = new Date(c.nextDueDate); dueDate.setHours(0,0,0,0);
         const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
 
-        let msg = diff < 0 ? `⚠️ متأخر بـ ${Math.abs(diff)} يوم` : (diff === 0 ? `📅 الموعد اليوم` : `📅 الموعد بعد ${diff} يوم`);
-        const text = `*مركز الراشد للاتصالات*%0Aالسلام عليكم *${c.name}*%0Aالمتبقي من حسابك: ${formatNum(rem)} د.ع%0A${msg}%0Aرابط حسابك:%0A${SITE_URL}/?id=${currentId}`;
+        let statusMsg = "";
+        if (diff < 0) statusMsg = `متأخر بـ ${Math.abs(diff)} يوم ⚠️`;
+        else if (diff === 0) statusMsg = `موعد القسط هو اليوم 📅`;
+        else statusMsg = `موعد القسط القادم بعد ${diff} يوم ⏳`;
+
+        // اعتماد نموذج 35-أ (الأول) كما طلبت
+        const text = `*مركز الراشد للاتصالات* 📱✨%0A` +
+                     `السلام عليكم، زبوننا العزيز أستاذ *${c.name}* من مركز الراشد المحترم..%0A%0A` +
+                     `نحيطكم علماً بتفاصيل حساب جهازكم 📱 *(${c.model})*:%0A` +
+                     `💰 *المبلغ المتبقي:* ${rem.toLocaleString()} د.ع%0A` +
+                     `🗓️ *حالة القسط:* ${statusMsg}%0A%0A` +
+                     `لمتابعة حالة قسطك وتفاصيل وصولاتك، يرجى الدخول على الرابط أدناه 👇:%0A` +
+                     `🔗 ${SITE_URL}/?id=${currentId}%0A%0A` +
+                     `شكراً لتفهمك، مركز الراشد للاتصالات. 🌹`;
+
         window.open(`https://wa.me/964${c.phone}?text=${text}`);
     }
 
@@ -352,3 +356,4 @@
 </script>
 </body>
 </html>
+
