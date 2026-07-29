@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         :root { --primary: #1c4587; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --bg: #f4f7f9; }
@@ -16,13 +15,13 @@
         header { background: var(--primary); color: white; text-align: center; padding: 20px; border-radius: 15px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 20px; position: relative; }
         .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        input { padding: 14px; border: 1px solid #c9d2db; border-radius: 10px; font-size: 16px; font-family: 'Cairo'; width: 100%; box-sizing: border-box; }
+        input, select { padding: 14px; border: 1px solid #c9d2db; border-radius: 10px; font-size: 16px; font-family: 'Cairo'; width: 100%; box-sizing: border-box; }
         button { padding: 10px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: 'Cairo'; transition: 0.3s; }
         button:disabled { background: #ccc !important; cursor: not-allowed; }
         .btn-add { background: var(--success); color: white; width: 100%; margin-top: 15px; font-size: 18px; }
         .btn-main { background: var(--primary); color: white; }
         .btn-wa { background: #25D366; color: white; width: 100%; margin-top: 10px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-print { background: #10b981; color: white; width: 100%; margin-top: 10px; font-size: 16px; }
+        .btn-print-mini { background: #0284c7; color: white; padding: 5px 12px; font-size: 13px; border-radius: 6px; }
         .btn-back { background: #64748b; color: white; margin-bottom: 15px; }
         .btn-del-user { background: #fee2e2; color: var(--danger); position: absolute; left: 25px; top: 25px; font-size: 14px; }
         
@@ -33,43 +32,24 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 15px; text-align: right; border-bottom: 1px solid #eee; }
         tr:hover { background: #f8fafc; cursor: pointer; }
-        .badge { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; display: inline-block; white-space: nowrap; }
         .badge-debt { background: #fee2e2; color: #b91c1c; }
-        .badge-paid { background: #d1fae5; color: #065f46; border: 2px solid #065f46; }
+        .badge-paid { background: #d1fae5; color: #065f46; border: 1px solid #059669; }
         .badge-warning { background: #fffbeb; color: #92400e; border: 1px solid #f59e0b; }
         
         #toast-container { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 10000; pointer-events: none; }
         .toast { background: white; padding: 12px 25px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.4s ease; border-right: 4px solid var(--primary); font-weight: bold; }
         #customerView { display: none; }
-        .payment-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; }
-        #printTemplate { position: absolute; left: -9999px; top: -9999px; width: 450px; background: white; padding: 30px; border: 12px solid #1c4587; text-align: center; direction: rtl; }
+        .payment-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #f1f5f9; }
     </style>
 </head>
 <body>
 
 <div id="toast-container"></div>
 
-<div id="printTemplate">
-    <div style="border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
-        <h1 style="margin: 0; color: #1c4587; font-family: 'Cairo';">مركز الراشد للاتصالات</h1>
-        <p style="margin: 5px 0; color: #666;">وصل تفاصيل الحساب</p>
-    </div>
-    <div style="text-align: right; font-size: 18px; line-height: 1.8;">
-        <p><strong>اسم الزبون:</strong> <span id="pName"></span></p>
-        <p><strong>نوع الجهاز:</strong> <span id="pModel"></span></p>
-        <p><strong>السعر الكلي:</strong> <span id="pTotal"></span></p>
-        <hr>
-        <div style="background: #fdf2f2; padding: 15px; border-radius: 10px; text-align: center;">
-            <p style="margin: 0; color: #666;">المبلغ المتبقي بذمتك:</p>
-            <h2 style="margin: 5px 0; color: #ef4444;" id="pRem"></h2>
-        </div>
-    </div>
-    <p style="margin-top: 20px; font-size: 13px; color: #999;">تاريخ الطباعة: <span id="pDate"></span></p>
-</div>
-
 <div class="container">
     <div id="mainView">
-        <header><h1>📝 مركز الراشد - الأقساط</h1></header>
+        <header><h1>📝 مركز الراشد - إدارة الأقساط</h1></header>
         
         <div class="card">
             <h2>تسجيل بيع جديد</h2>
@@ -80,9 +60,11 @@
                 <input type="number" id="totalPrice" placeholder="السعر الكلي">
                 <input type="number" id="firstPay" placeholder="المقدمة">
             </div>
-            <div style="background: #fffbeb; padding: 15px; border-radius: 10px; margin-top: 10px; border: 1px solid #fde68a;">
-                <label style="font-weight: bold; color: #92400e;">📅 يوم دفع القسط شهرياً (مثلاً يوم 10):</label>
-                <input type="number" id="fixedDayInput" min="1" max="30" value="10" style="width: 100px; margin-right: 10px;">
+            <div style="background: #fffbeb; padding: 15px; border-radius: 10px; margin-top: 15px; border: 1px solid #fde68a;">
+                <label style="font-weight: bold; color: #92400e; display: block; margin-bottom: 8px;">
+                    📅 يوم دفع القسط شهرياً (اختر من 1 إلى 30):
+                </label>
+                <input type="number" id="fixedDayInput" min="1" max="30" value="10" placeholder="يوم القسط (1 - 30)">
             </div>
             <button class="btn-add" id="btnAddCustomer" onclick="addCustomer()">حفظ البيانات بالسحابة ☁️</button>
         </div>
@@ -98,7 +80,7 @@
             </div>
 
             <table>
-                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>الحالة</th></tr></thead>
+                <thead><tr><th>الزبون</th><th>الجهاز</th><th>المتبقي</th><th>تاريخ القسط</th><th>الحالة</th></tr></thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
@@ -116,9 +98,11 @@
                 <p style="background: #eef2f6; padding: 10px; border-radius: 8px;">
                     📅 يوم الاستحقاق الثابت: <b id="viewFixedDayDisplay">--</b> بالشهر
                 </p>
+                <p style="background: #f0fdf4; padding: 10px; border-radius: 8px; border: 1px solid #bbf7d0;">
+                    ⏳ موعد القسط القادم: <b id="viewNextDueDateDisplay" style="color:var(--primary)">--</b>
+                </p>
             </div>
             <button class="btn-wa" onclick="sendWhatsApp()">💬 إرسال تذكير واتساب</button>
-            <button class="btn-print" onclick="printCustomerReceipt()">🖼️ طباعة وصل صوري</button>
         </div>
         <div class="card" id="payInputCard" style="background: #f0f9ff;">
             <h3>تسجيل قسط جديد</h3>
@@ -127,7 +111,10 @@
                 <button class="btn-main" id="btnConfirmPay" onclick="addInstallment()">تأكيد الدفع</button>
             </div>
         </div>
-        <div class="card"><h3>سجل المدفوعات</h3><div id="paymentsLog"></div></div>
+        <div class="card">
+            <h3>سجل المدفوعات والوصولات</h3>
+            <div id="paymentsLog"></div>
+        </div>
     </div>
 </div>
 
@@ -174,15 +161,27 @@
         });
     }
 
-    function calculateFixedNextDate(fixedDay) {
+    function calculateInitialNextDate(fixedDay) {
         let now = new Date();
-        let day = parseInt(fixedDay);
-        let nextDate = new Date(now.getFullYear(), now.getMonth(), day, 10, 0, 0);
+        let day = parseInt(fixedDay) || 10;
+        let targetDate = new Date(now.getFullYear(), now.getMonth(), day, 10, 0, 0);
+        let lastDayInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+        targetDate.setDate(Math.min(day, lastDayInMonth));
+        return targetDate.getTime();
+    }
+
+    function calculateSmartNextDateOnPayment(currentNextDueDateTimestamp, fixedDay) {
+        let now = new Date();
+        let day = parseInt(fixedDay) || 10;
+        let baseDate = currentNextDueDateTimestamp ? new Date(currentNextDueDateTimestamp) : new Date();
+
+        let nextDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, day, 10, 0, 0);
         if (nextDate <= now) {
-            nextDate.setMonth(nextDate.getMonth() + 1);
+            nextDate = new Date(now.getFullYear(), now.getMonth() + 1, day, 10, 0, 0);
         }
         let lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
         nextDate.setDate(Math.min(day, lastDay));
+
         return nextDate.getTime();
     }
 
@@ -217,21 +216,24 @@
             const rem = Math.max(0, c.total - paid);
             
             let daysDiff = 0;
+            let formattedDateStr = "--";
+
             if(c.nextDueDate && rem > 0) {
                 const dueDate = new Date(c.nextDueDate);
+                formattedDateStr = dueDate.toLocaleDateString('ar-IQ');
                 dueDate.setHours(0,0,0,0);
                 daysDiff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
             }
 
             let show = (activeFilter === 'all') || 
-                       (activeFilter === 'today' && daysDiff === 0) ||
-                       (activeFilter === 'soon' && daysDiff >= 1 && daysDiff <= 3) ||
-                       (activeFilter === 'late' && daysDiff < 0);
+                       (activeFilter === 'today' && daysDiff === 0 && rem > 0) ||
+                       (activeFilter === 'soon' && daysDiff >= 1 && daysDiff <= 3 && rem > 0) ||
+                       (activeFilter === 'late' && daysDiff < 0 && rem > 0);
 
             if(!show) return;
 
             let statusBadge = '';
-            if(rem <= 0) statusBadge = '<span class="badge badge-paid">تم الدفع</span>';
+            if(rem <= 0) statusBadge = '<span class="badge badge-paid">تم الدفع بالكامل</span>';
             else if(daysDiff < 0) statusBadge = `<span class="badge badge-debt">متأخر ${Math.abs(daysDiff)} يوم</span>`;
             else if(daysDiff === 0) statusBadge = '<span class="badge badge-warning">الموعد اليوم</span>';
             else statusBadge = `<span class="badge badge-debt">باقي ${daysDiff} يوم</span>`;
@@ -239,7 +241,8 @@
             body.innerHTML += `<tr onclick="showCustomer('${id}')">
                 <td><b>${c.name}</b></td>
                 <td>${c.model}</td>
-                <td>${formatNum(rem)}</td>
+                <td>${formatNum(rem)} د.ع</td>
+                <td>${formattedDateStr}</td>
                 <td>${statusBadge}</td>
             </tr>`;
         });
@@ -251,36 +254,46 @@
         const first = parseFloat(document.getElementById('firstPay').value) || 0;
         const fixedDay = parseInt(document.getElementById('fixedDayInput').value) || 10;
 
-        if(!name || isNaN(total)) return showToast("أكمل البيانات", "danger");
+        if(!name || isNaN(total)) return showToast("أكمل البيانات الأساسية للزبون", "danger");
+        if(fixedDay < 1 || fixedDay > 30) return showToast("يرجى إدخال يوم بين 1 و 30", "danger");
         
-        let nextDueDate = calculateFixedNextDate(fixedDay);
+        let initialDueDate = calculateInitialNextDate(fixedDay);
+
+        if (first > 0) {
+            initialDueDate = calculateSmartNextDateOnPayment(initialDueDate, fixedDay);
+        }
+
         db.ref('installments').push({
-            name, phone: document.getElementById('custPhone').value, model: document.getElementById('phoneModel').value, 
-            total, purchaseDate: getEngDate(), fixedDay, nextDueDate,
+            name, 
+            phone: document.getElementById('custPhone').value, 
+            model: document.getElementById('phoneModel').value, 
+            total, 
+            purchaseDate: getEngDate(), 
+            fixedDay, 
+            nextDueDate: initialDueDate,
             payments: first > 0 ? [{amount: first, date: getEngDate(), time: Date.now()}] : []
         }).then(() => {
             showToast("تم الحفظ بنجاح", "success");
             document.querySelectorAll('.grid-form input').forEach(i => i.value = '');
+            document.getElementById('fixedDayInput').value = 10;
         });
     }
 
     function addInstallment() {
         const val = parseFloat(document.getElementById('newPay').value);
-        if(isNaN(val) || val <= 0) return;
+        if(isNaN(val) || val <= 0) return showToast("أدخل مبلغ صحيح", "danger");
+
         const c = allCustomers[currentId];
         const payments = c.payments || [];
         payments.push({ amount: val, date: getEngDate(), time: Date.now() });
         
-        let currentNext = new Date(c.nextDueDate);
-        currentNext.setMonth(currentNext.getMonth() + 1);
-        let lastDay = new Date(currentNext.getFullYear(), currentNext.getMonth() + 1, 0).getDate();
-        currentNext.setDate(Math.min(c.fixedDay, lastDay));
+        let smartNextDueDate = calculateSmartNextDateOnPayment(c.nextDueDate, c.fixedDay);
 
         db.ref('installments/' + currentId).update({ 
             payments: payments, 
-            nextDueDate: currentNext.getTime() 
+            nextDueDate: smartNextDueDate 
         }).then(() => {
-            showToast("تم تسجيل الدفعة وتحديث التاريخ", "success");
+            showToast("تم تسجيل الدفعة وتعديل الموعد تلقائياً 🔄", "success");
             document.getElementById('newPay').value = '';
         });
     }
@@ -290,17 +303,21 @@
         const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
         const rem = c.total - paid;
         const now = new Date(); now.setHours(0,0,0,0);
-        const dueDate = new Date(c.nextDueDate); dueDate.setHours(0,0,0,0);
-        const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
-
+        
         let statusMsg = "";
-        if (diff < 0) statusMsg = `متأخر بـ ${Math.abs(diff)} يوم ⚠️`;
-        else if (diff === 0) statusMsg = `موعد القسط هو اليوم 📅`;
-        else statusMsg = `موعد القسط القادم بعد ${diff} يوم ⏳`;
+        if (c.nextDueDate && rem > 0) {
+            const dueDate = new Date(c.nextDueDate); dueDate.setHours(0,0,0,0);
+            const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
 
-        // اعتماد نموذج 35-أ (الأول) كما طلبت
+            if (diff < 0) statusMsg = `متأخر بـ ${Math.abs(diff)} يوم ⚠️`;
+            else if (diff === 0) statusMsg = `موعد القسط هو اليوم 📅`;
+            else statusMsg = `موعد القسط القادم بعد ${diff} يوم ⏳ (${dueDate.toLocaleDateString('ar-IQ')})`;
+        } else {
+            statusMsg = "تم تسديد الحساب بالكامل ✅";
+        }
+
         const text = `*مركز الراشد للاتصالات* 📱✨%0A` +
-                     `السلام عليكم، زبوننا العزيز أستاذ *${c.name}* من مركز الراشد المحترم..%0A%0A` +
+                     `السلام عليكم، زبوننا العزيز أستاذ *${c.name}* المحترم..%0A%0A` +
                      `نحيطكم علماً بتفاصيل حساب جهازكم 📱 *(${c.model})*:%0A` +
                      `💰 *المبلغ المتبقي:* ${rem.toLocaleString()} د.ع%0A` +
                      `🗓️ *حالة القسط:* ${statusMsg}%0A%0A` +
@@ -311,6 +328,109 @@
         window.open(`https://wa.me/964${c.phone}?text=${text}`);
     }
 
+    // 🖨️ دالة طباعة وصل القسط بالقياس 57mm وتوسيط دقيق للطابعة
+    function printReceipt(payIndex) {
+        const c = allCustomers[currentId];
+        if(!c || !c.payments || !c.payments[payIndex]) return;
+
+        const currentPayment = c.payments[payIndex];
+        
+        let totalPaidUntilThisPay = 0;
+        for(let i = 0; i <= payIndex; i++) {
+            totalPaidUntilThisPay += c.payments[i].amount;
+        }
+        const remainingAfterThisPay = Math.max(0, c.total - totalPaidUntilThisPay);
+        
+        const receiptNo = (currentPayment.time || Date.now()).toString().slice(-6);
+
+        const printWindow = window.open('', '_blank', 'width=350,height=550');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="ar" dir="rtl">
+            <head>
+                <meta charset="UTF-8">
+                <title>وصل تسديد - مركز الراشد</title>
+                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+                <style>
+                    @page { size: 57mm auto; margin: 0; }
+                    html, body { margin: 0; padding: 0; width: 100%; box-sizing: border-box; }
+                    body {
+                        font-family: 'Cairo', sans-serif;
+                        width: 52mm;
+                        margin: 0 auto;
+                        padding: 2px 0;
+                        background: #fff;
+                        color: #000;
+                        direction: rtl;
+                        font-size: 11px;
+                        line-height: 1.3;
+                        text-align: center;
+                    }
+                    .text-center { text-align: center; }
+                    .header h2 { margin: 1px 0; font-size: 14px; font-weight: 800; }
+                    .header p { margin: 1px 0; font-size: 10px; }
+                    .dashed-line { border-top: 1px dashed #000; margin: 4px 0; }
+                    .info-table { width: 100%; border-collapse: collapse; margin: 2px 0; text-align: right; }
+                    .info-table td { padding: 2px 0; vertical-align: top; word-break: break-word; }
+                    .info-table td.title { font-weight: bold; width: 44%; white-space: nowrap; }
+                    .amount-box {
+                        border: 1.5px solid #000;
+                        padding: 3px 2px;
+                        text-align: center;
+                        font-size: 12px;
+                        font-weight: 800;
+                        margin: 4px 0;
+                        border-radius: 4px;
+                    }
+                    .footer { text-align: center; font-size: 9px; margin-top: 5px; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <div class="header text-center">
+                    <h2>مركز الراشد</h2>
+                    <p>للمبيعات والصيانة العامة</p>
+                    <p>وصل تسديد قسط</p>
+                </div>
+
+                <div class="dashed-line"></div>
+
+                <table class="info-table">
+                    <tr><td class="title">رقم الوصل:</td><td>#${receiptNo}</td></tr>
+                    <tr><td class="title">التاريخ والوقت:</td><td>${currentPayment.date}</td></tr>
+                    <tr><td class="title">اسم الزبون:</td><td><b>${c.name}</b></td></tr>
+                    <tr><td class="title">رقم الهاتف:</td><td>${c.phone || '--'}</td></tr>
+                    <tr><td class="title">الجهاز:</td><td>${c.model}</td></tr>
+                </table>
+
+                <div class="dashed-line"></div>
+
+                <div class="amount-box">
+                    المبلغ: ${formatNum(currentPayment.amount)} د.ع
+                </div>
+
+                <table class="info-table">
+                    <tr><td class="title">المتبقي الكلي:</td><td><b>${formatNum(remainingAfterThisPay)} د.ع</b></td></tr>
+                </table>
+
+                <div class="dashed-line"></div>
+
+                <div class="footer">
+                    <p>شكراً لتعاملكم مع مركز الراشد 🌹</p>
+                    <p>يرجى الاحتفاظ بالوصل للضرورة</p>
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function(){ window.close(); }, 500);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
+
     function showCustomer(id) {
         currentId = id; const c = allCustomers[id]; if(!c) return showMain();
         document.getElementById('mainView').style.display = 'none';
@@ -318,42 +438,37 @@
         document.getElementById('viewName').innerText = c.name;
         document.getElementById('viewPhoneDisplay').innerText = `الجهاز: ${c.model} | الهاتف: ${c.phone}`;
         document.getElementById('viewTotal').innerText = formatNum(c.total) + " د.ع";
-        document.getElementById('viewFixedDayDisplay').innerText = c.fixedDay;
+        document.getElementById('viewFixedDayDisplay').innerText = c.fixedDay || "--";
+
+        const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+        const rem = c.total - paid;
+
+        document.getElementById('viewNextDueDateDisplay').innerText = (c.nextDueDate && rem > 0) ? new Date(c.nextDueDate).toLocaleDateString('ar-IQ') : 'مسدد بالكامل';
         document.getElementById('deleteUserContainer').innerHTML = `<button class="btn-del-user" onclick="confirmDeleteUser()">🗑️ حذف الزبون</button>`;
+        
         const log = document.getElementById('paymentsLog'); log.innerHTML = '';
-        let totalPaid = 0;
         if(c.payments) {
-            c.payments.forEach(p => {
-                totalPaid += p.amount;
-                log.innerHTML += `<div class="payment-item"><b>${formatNum(p.amount)} د.ع</b> <span>${p.date}</span></div>`;
+            c.payments.forEach((p, idx) => {
+                log.innerHTML += `
+                <div class="payment-item">
+                    <div>
+                        <b style="color:var(--success); font-size:16px;">${formatNum(p.amount)} د.ع</b>
+                        <br><small style="color:#64748b;">📅 ${p.date}</small>
+                    </div>
+                    <button class="btn-print-mini" onclick="printReceipt(${idx})">🖨️ طباعة وصل</button>
+                </div>`;
             });
         }
-        document.getElementById('viewRemaining').innerText = formatNum(c.total - totalPaid) + " د.ع";
-        document.getElementById('payInputCard').style.display = (c.total - totalPaid <= 0) ? 'none' : 'block';
-    }
-
-    function printCustomerReceipt() {
-        const c = allCustomers[currentId];
-        const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
-        document.getElementById('pName').innerText = c.name;
-        document.getElementById('pModel').innerText = c.model;
-        document.getElementById('pTotal').innerText = formatNum(c.total);
-        document.getElementById('pRem').innerText = formatNum(c.total - paid);
-        document.getElementById('pDate').innerText = new Date().toLocaleDateString('ar-EG');
-        html2canvas(document.getElementById('printTemplate'), { scale: 2 }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = `وصل_${c.name}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
-        });
+        document.getElementById('viewRemaining').innerText = formatNum(rem) + " د.ع";
+        document.getElementById('payInputCard').style.display = (rem <= 0) ? 'none' : 'block';
     }
 
     function showMain() { currentId = null; document.getElementById('mainView').style.display = 'block'; document.getElementById('customerView').style.display = 'none'; }
     function confirmDeleteUser() { if(confirm("هل أنت متأكد من الحذف؟")) db.ref('installments/' + currentId).remove().then(() => showMain()); }
     function formatNum(n) { return Number(n).toLocaleString(); }
     function getEngDate() { return new Date().toLocaleString('en-GB'); }
+    
     loadData();
 </script>
 </body>
 </html>
-
